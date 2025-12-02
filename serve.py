@@ -17,6 +17,11 @@ def check_internet(host="8.8.8.8", port=53, timeout=3):
     except Exception:
         return False
 
+# --- 网络连通性测试 ---
+internet_ok = check_internet()
+print("【Internet Connectivity Test】:",
+      "CONNECTED" if internet_ok else "OFFLINE / BLOCKED")
+
 class PredictionRequest(BaseModel):
     prompt: str
 
@@ -76,7 +81,7 @@ async def predict(request: PredictionRequest):
     engine = app.state.engine
     prompt_text = request.prompt
 
-    raise RuntimeError(request.prompt)
+    # raise RuntimeError(request.prompt)
 
     sampling_params = SamplingParams(
         temperature=0.7,
