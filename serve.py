@@ -7,6 +7,15 @@ from vllm import SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 import uvicorn
+import socket
+
+def check_internet(host="8.8.8.8", port=53, timeout=3):
+    try:
+        socket.setdefaulttimeout(timeout)
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+        return True
+    except Exception:
+        return False
 
 class PredictionRequest(BaseModel):
     prompt: str
@@ -66,6 +75,9 @@ async def predict(request: PredictionRequest):
     global count
     engine = app.state.engine
     prompt_text = request.prompt
+
+    raise RuntimeError(request.prompt)
+
     sampling_params = SamplingParams(
         temperature=0.7,
         top_p=0.9,
@@ -78,7 +90,7 @@ async def predict(request: PredictionRequest):
     async for request_output in results_generator:
         final_output = request_output
     generated_text = final_output.outputs[0].text
-    return PredictionResponse(response=generated_text.strip())
+    return PredictionResponse(response='network:' + str(internet_ok) + generated_text.strip())
 
 @app.get("/")
 def health_check():
