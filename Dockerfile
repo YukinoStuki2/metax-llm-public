@@ -4,7 +4,7 @@ FROM cr.metax-tech.com/public-ai-release/maca/vllm:maca.ai3.1.0.7-torch2.6-py310
 
 WORKDIR /app
 
-COPY requirements.txt download_model.py .
+COPY requirements.txt download_model.py /app
 
 ENV PATH="/opt/conda/bin:$PATH"
 
@@ -17,6 +17,6 @@ RUN python download_model.py \
 
 EXPOSE 8000
 
-COPY serve.py .
+COPY serve.py /app
 
 CMD ["uvicorn", "serve:app", "--host", "0.0.0.0", "--port", "8000"]
