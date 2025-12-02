@@ -1,0 +1,22 @@
+FROM cr.metax-tech.com/public-ai-release/maca/vllm:maca.ai3.1.0.7-torch2.6-py310-ubuntu22.04-amd64
+
+# 以上不可修改
+
+WORKDIR /app
+
+COPY requirements.txt download_model.py .
+
+ENV PATH="/opt/conda/bin:$PATH"
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN python download_model.py \
+        --model_name Qwen/Qwen3-1.7B \
+        --cache_dir /app \
+        --revision master
+
+EXPOSE 8000
+
+COPY serve.py .
+
+CMD ["uvicorn", "serve:app", "--host", "0.0.0.0", "--port", "8000"]
