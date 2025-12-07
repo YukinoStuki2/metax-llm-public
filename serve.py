@@ -77,7 +77,7 @@ async def predict(request: PredictionRequest):
     engine = app.state.engine
     prompt_text = request.prompt
 
-    # raise RuntimeError(request.prompt)
+    raise RuntimeError(request.prompt)
 
     sampling_params = SamplingParams(
         temperature=0.7,
@@ -97,7 +97,7 @@ async def predict(request: PredictionRequest):
     print("【Internet Connectivity Test】:",
         "CONNECTED" if internet_ok else "OFFLINE / BLOCKED")
 
-    return PredictionResponse(response='network:' + str(internet_ok) + generated_text.strip())
+    return PredictionResponse(response=generated_text.strip())
 
 @app.get("/")
 def health_check():
