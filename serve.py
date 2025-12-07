@@ -17,10 +17,6 @@ def check_internet(host="8.8.8.8", port=53, timeout=3):
     except Exception:
         return False
 
-# --- 网络连通性测试 ---
-internet_ok = check_internet()
-print("【Internet Connectivity Test】:",
-      "CONNECTED" if internet_ok else "OFFLINE / BLOCKED")
 
 class PredictionRequest(BaseModel):
     prompt: str
@@ -95,6 +91,12 @@ async def predict(request: PredictionRequest):
     async for request_output in results_generator:
         final_output = request_output
     generated_text = final_output.outputs[0].text
+
+    # --- 网络连通性测试 ---
+    internet_ok = check_internet()
+    print("【Internet Connectivity Test】:",
+        "CONNECTED" if internet_ok else "OFFLINE / BLOCKED")
+
     return PredictionResponse(response='network:' + str(internet_ok) + generated_text.strip())
 
 @app.get("/")
