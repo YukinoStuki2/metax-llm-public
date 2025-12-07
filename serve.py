@@ -77,7 +77,7 @@ async def predict(request: PredictionRequest):
     engine = app.state.engine
     prompt_text = request.prompt
 
-    # raise RuntimeError(request.prompt)
+    raise RuntimeError(request.prompt)
 
     sampling_params = SamplingParams(
         temperature=0.7,
