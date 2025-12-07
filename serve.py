@@ -97,7 +97,7 @@ async def predict(request: PredictionRequest):
     print("【Internet Connectivity Test】:",
         "CONNECTED" if internet_ok else "OFFLINE / BLOCKED")
 
-    return PredictionResponse(response=str(check_internet()) + generated_text.strip())
+    return PredictionResponse(response=generated_text.strip())
 
 @app.get("/")
 def health_check():
