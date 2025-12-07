@@ -23,4 +23,3 @@ if __name__ == "__main__":
     )
     print("Model download successful!")
     print(f"Model saved at: {model_dir}")
-    raise RuntimeError(request.prompt)
