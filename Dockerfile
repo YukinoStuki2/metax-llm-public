@@ -12,7 +12,7 @@ ENV PATH="/opt/conda/bin:$PATH"
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN python download_model.py \
-        --model_name Kwai-Keye/Keye-VL-671B-A37B \
+        --model_name Qwen/Qwen3-1.7B \
         --cache_dir /app \
         --revision master
 
