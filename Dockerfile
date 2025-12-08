@@ -1,6 +1,5 @@
 FROM cr.metax-tech.com/public-ai-release/maca/vllm:maca.ai3.1.0.7-torch2.6-py310-ubuntu22.04-amd64
 
-# 以上不可修改
 
 WORKDIR /app
 
