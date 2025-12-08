@@ -83,7 +83,7 @@ async def predict(request: PredictionRequest):
         temperature=0.7,
         top_p=0.9,
         top_k=50,
-        max_tokens=50,
+        max_tokens=512,
     )
     results_generator = engine.generate(prompt_text, sampling_params, str(count))
     count += 1

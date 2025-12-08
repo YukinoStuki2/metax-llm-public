@@ -4,6 +4,8 @@ FROM cr.metax-tech.com/public-ai-release/maca/vllm:maca.ai3.1.0.7-torch2.6-py310
 
 WORKDIR /app
 
+ENV OMP_NUM_THREADS=4
+
 COPY requirements.txt  .
 COPY download_model.py .
 
