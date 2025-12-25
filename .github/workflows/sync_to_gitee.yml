@@ -1,0 +1,38 @@
+name: Sync to Gitee
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup SSH for Gitee
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p ~/.ssh
+          printf '%s' "${{ secrets.GITEE_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          for i in 1 2 3 4 5; do
+            ssh-keyscan -t rsa gitee.com >> ~/.ssh/known_hosts 2>/dev/null && break
+            sleep 2
+          done
+
+      - name: Push to Gitee
+        shell: bash
+        run: |
+          set -eux
+          git remote add gitee git@gitee.com:yukinostuki/metax-demo.git || true
+          git push -f gitee master:master
