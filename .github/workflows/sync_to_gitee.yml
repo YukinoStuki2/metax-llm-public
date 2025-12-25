@@ -23,9 +23,12 @@ jobs:
         run: |
           set -eux
           mkdir -p ~/.ssh
-          echo "${{ secrets.GITEE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s' "${{ secrets.GITEE_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -t rsa gitee.com >> ~/.ssh/known_hosts
+          for i in 1 2 3 4 5; do
+            ssh-keyscan -t rsa gitee.com >> ~/.ssh/known_hosts 2>/dev/null && break
+            sleep 2
+          done
 
       - name: Push to Gitee
         shell: bash
