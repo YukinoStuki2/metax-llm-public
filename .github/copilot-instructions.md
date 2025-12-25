@@ -1,18 +1,43 @@
 # Copilot Instructions
 
-- Repository role: GitHub is the source of truth; changes push automatically to upstream Gitee repo `yukinostuki/metax-demo`.
-- Primary automation lives in [workflows/sync_to_gitee.yml](./workflows/sync_to_gitee.yml); triggers on every push to `master` branch.
-- Sync process: checks out code with full history, sets up SSH with `GITEE_SSH_PRIVATE_KEY`, force-pushes to Gitee `master:master`. Assumes Gitee accepts force pushes.
-- Make edits directly in GitHub; the workflow propagates changes to Gitee automatically. Avoid manual pushes to Gitee to prevent conflicts.
-- Secrets required: `GITEE_SSH_PRIVATE_KEY` (ED25519 key with write access to Gitee repo).
-- CI expectations: No build/test workflows; only sync-on-push. Avoid adding heavy CI unless needed for validation before sync.
-- Default branch is `master`; all development happens here. Push to `master` triggers immediate sync to Gitee.
-- When debugging sync issues, inspect Actions logs for the `Sync to Gitee` workflow and validate SSH known_hosts entry for `gitee.com`.
-- Keep commits atomic and meaningful; every push to `master` will sync to Gitee.
-- Any additional project documentation lives in this repo. README and project files in [root](../).
-- File/dir map: root contains project code; [workflows](./workflows) contains GitHub→Gitee automation; no source code stored in `.github`.
-- Branch policy: development on `master`; feature branches optional but must merge to `master` for sync. Gitee will mirror `master` only.
-- Releases/tags: create in GitHub; manually push tags to Gitee or extend workflow to include `git push --tags gitee`.
-- Common failure: missing or invalid `GITEE_SSH_PRIVATE_KEY` yields auth errors during push. Rotate the key in repo secrets and re-run workflow.
-- Local testing of the sync job: replicate steps in [workflows/sync_to_gitee.yml](./workflows/sync_to_gitee.yml) with your own tokens; ensure SSH auth and `git push` succeed.
-- Ownership: GitHub is primary; Gitee is downstream mirror receiving force-pushes from GitHub Actions.
+- Project purpose: fine-tune an open-source LLM for QA evaluation; build a Q/A dataset (from a book), serve inference via HTTP, and optimize accuracy + throughput for the judge.
+
+## Source of truth / sync
+
+- Repository role: GitHub is the source of truth; pushes sync to Gitee repo `yukinostuki/metax-demo`.
+- Automation: [workflows/sync_to_gitee.yml](./workflows/sync_to_gitee.yml) runs on every push to `master`.
+- Sync method: sets up SSH using `GITEE_SSH_PRIVATE_KEY`, then force-pushes `master:master` to Gitee.
+- Workflow debugging: check GitHub Actions logs for `Sync to Gitee`; most common failures are missing/invalid `GITEE_SSH_PRIVATE_KEY` or SSH known_hosts issues.
+
+## Judge API contract (MUST NOT BREAK)
+
+- HTTP endpoints:
+	- `GET /` health check. Must return quickly; judge calls this before `/predict`.
+	- `POST /predict` with JSON `{"prompt":"..."}`; return JSON `{"response":"..."}`.
+- Port: keep Dockerfile `EXPOSE 8000` and service on port 8000.
+- Output discipline: avoid very long answers; do not output chain-of-thought; strip `<think>...</think>` if present.
+
+## Environment constraints
+
+- Build stage: Internet allowed (download deps/weights).
+- Run stage: NO Internet. Do not add network calls in request path.
+- Time limits (template defaults): build 900s, health 180s, predict 360s.
+
+## Scoring + targets
+
+- Accuracy: RougeL-F1 on jieba tokenization; empty prediction or missing responses score 0; fewer predictions are padded with empty strings.
+- Throughput on the platform may be estimated using `sum(len(str(response))) / sum(predict_request_time)` (can look inflated); still optimize real latency.
+- Current goals: accuracy ≥ 0.35 and throughput preferably > 300 tokens/s.
+- Submissions: limited attempts (20 total). Avoid submitting again before the previous run completes.
+
+## Project-specific facts (assume unless user overrides)
+
+- Base image is fixed (do not change `FROM` in Dockerfile).
+- Model source: ModelScope `yukinostuki/qwen3-4b-ft-v1` (merged weights). Downloaded during build via `download_model.py` into `/app/model/...`.
+- Serving entrypoint: `serve.py` (FastAPI+uvicorn). Prefer vLLM when available; transformers is a fallback.
+- Local eval helper: `eval_local.py` calls `/predict` and computes RougeL-F1 in the same style as the judge.
+
+## Work style
+
+- Keep changes minimal and measurable; prioritize speed optimizations that do not degrade accuracy.
+- Do not add heavy CI; this repo’s primary automation is GitHub→Gitee sync.
