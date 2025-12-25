@@ -1,9 +1,8 @@
-modelscope
 fastapi>=0.104.0
 uvicorn>=0.24.0
 pydantic>=2.4.0
 
-# Model download
+# Model download (build stage)
 modelscope>=1.15.0
 
 # Transformers fallback（vLLM 初始化失败时用）
@@ -11,9 +10,3 @@ transformers>=4.39.0
 accelerate>=0.27.0
 sentencepiece>=0.1.99
 safetensors>=0.4.2
-
-# LoRA/Adapter merge
-peft>=0.10.0
-
-# Utils
-numpy>=1.24.0
