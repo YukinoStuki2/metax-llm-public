@@ -25,6 +25,20 @@ ENV MODEL_DIR=./model/$MODEL_ID
 ENV USE_VLLM=true
 ENV MAX_NEW_TOKENS=48
 
+# serve.py runtime knobs (keep defaults explicit)
+ENV BATCH_MODE=0 \
+        BATCH_CONCURRENCY=16 \
+        TEMPERATURE=0.0 \
+        TOP_P=1.0 \
+        TOP_K=1 \
+        GPU_MEMORY_UTILIZATION=0.85 \
+        DTYPE=float16 \
+        TRANSFORMERS_DTYPE=float16 \
+        DEBUG_NET=0
+
+# download_model.py (optional; empty means anonymous download)
+ENV MODELSCOPE_API_TOKEN=
+
 EXPOSE 8000
 
 COPY . .
