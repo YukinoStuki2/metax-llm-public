@@ -2,6 +2,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 import asyncio
+import uuid
 from typing import Any, List, Optional, Union
 
 from fastapi import FastAPI
@@ -51,9 +52,6 @@ DEBUG_NET = os.environ.get("DEBUG_NET", "0") == "1"
 
 # vLLM 在部分环境可用 ModelScope（保留）
 os.environ["VLLM_USE_MODELSCOPE"] = "True"
-
-_request_id = 1
-
 
 def strip_think(text: str) -> str:
     """去掉可能的 <think>...</think>，避免输出过长。"""
@@ -261,8 +259,6 @@ def health_check():
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(req: PredictionRequest):
-    global _request_id
-
     tokenizer = getattr(app.state, "tokenizer", None)
 
     def to_list(p: Union[str, List[str]]) -> List[str]:
@@ -285,9 +281,8 @@ async def predict(req: PredictionRequest):
         )
 
         async def run_one(text_prompt: str) -> str:
-            global _request_id
-            rid = str(_request_id)
-            _request_id += 1
+            # vLLM 的 request_id 需要唯一；batch 并发下用 uuid 避免竞争条件
+            rid = uuid.uuid4().hex
             results = engine.generate(text_prompt, sampling_params, rid)
             final_output = None
             async for request_output in results:
