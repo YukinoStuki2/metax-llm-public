@@ -39,5 +39,6 @@
 
 ## Work style
 
+- Default language: respond in Chinese (zh-cn) unless the user explicitly asks for English.
 - Keep changes minimal and measurable; prioritize speed optimizations that do not degrade accuracy.
 - Do not add heavy CI; this repo’s primary automation is GitHub→Gitee sync.
