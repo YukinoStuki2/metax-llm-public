@@ -43,6 +43,13 @@ jobs:
           # Stage deletions so push -f will remove extras on Gitee.
           git add -A
 
+          # IMPORTANT: git push only pushes commits, not the index/working tree.
+          # Create a sync-only commit on the runner so Gitee receives the pruned tree.
+          if ! git diff --cached --quiet; then
+            git -c user.name='gitee-sync-bot' -c user.email='gitee-sync-bot@users.noreply.github.com' \
+              commit -m 'chore: sync whitelisted files to gitee'
+          fi
+
       - name: Setup SSH for Gitee
         shell: bash
         run: |
