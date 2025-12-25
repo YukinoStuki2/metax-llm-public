@@ -78,10 +78,49 @@ def find_adapter_weights(adapter_dir: str) -> str:
     )
 
 
+def is_git_lfs_pointer(file_path: str) -> bool:
+    try:
+        with open(file_path, "rb") as f:
+            head = f.read(256)
+    except Exception:
+        return False
+
+    marker = b"git-lfs"
+    return head.startswith(b"version https://git-lfs.github.com/spec/v1") or marker in head
+
+
+def materialize_lfs_file(file_path: str, repo_dir: str) -> None:
+    if not is_git_lfs_pointer(file_path):
+        return
+
+    print("[merge_adapter] Detected Git LFS pointer; trying git lfs pull to fetch real weights...")
+    try:
+        run(["git", "lfs", "install", "--local"], cwd=repo_dir)
+        run(["git", "lfs", "pull"], cwd=repo_dir)
+    except Exception as e:
+        raise RuntimeError(
+            "Adapter weight appears to be a Git LFS pointer; git-lfs is missing or pull failed. "
+            "Install git-lfs and ensure LFS objects can be downloaded."
+        ) from e
+
+    if is_git_lfs_pointer(file_path):
+        raise RuntimeError(
+            "Git LFS pull completed but the adapter weight file is still a pointer. "
+            "Please verify LFS availability and that the large files are accessible."
+        )
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Download base model from ModelScope, clone adapter repo, and merge adapter into a full merged model directory."
     )
+
+    # Use current working directory by default so running locally/WSL doesn't require /app write permissions.
+    cwd = os.getcwd()
+    default_cache_dir = os.path.join(cwd, "model")
+    default_work_dir = os.path.join(cwd, "merge_work")
+    default_output_dir = os.path.join(cwd, "merged")
+
     p.add_argument(
         "--base_model",
         default=os.environ.get("BASE_MODEL", "Qwen/Qwen3-4B"),
@@ -94,12 +133,12 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--cache_dir",
-        default=os.environ.get("MODEL_CACHE_DIR", "/app/model"),
+        default=os.environ.get("MODEL_CACHE_DIR", default_cache_dir),
         help="Where to store downloaded models. Env: MODEL_CACHE_DIR",
     )
     p.add_argument(
         "--adapter_repo_url",
-        default=os.environ.get("ADAPTER_REPO_URL", "https://gitee.com/yukinostuki/qwen3-4b-plus.git"),
+        default=os.environ.get("ADAPTER_REPO_URL", "git@gitee.com:yukinostuki/qwen3-4b-plus.git"),
         help="Adapter repo URL to clone. Env: ADAPTER_REPO_URL",
     )
     p.add_argument(
@@ -109,12 +148,12 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--work_dir",
-        default=os.environ.get("MERGE_WORK_DIR", "/app/merge_work"),
+        default=os.environ.get("MERGE_WORK_DIR", default_work_dir),
         help="Working directory for cloning adapter. Env: MERGE_WORK_DIR",
     )
     p.add_argument(
         "--output_dir",
-        default=os.environ.get("MERGED_MODEL_DIR", "/app/model/merged"),
+        default=os.environ.get("MERGED_MODEL_DIR", default_output_dir),
         help="Output merged model directory. Env: MERGED_MODEL_DIR",
     )
     return p.parse_args()
@@ -137,6 +176,9 @@ def main() -> int:
     clone_adapter_repo(args.adapter_repo_url, adapter_dir, args.adapter_ref or None)
     adapter_weights = find_adapter_weights(adapter_dir)
     print("[merge_adapter] Adapter weights:", adapter_weights)
+
+    # If the adapter weights are tracked via Git LFS, ensure the real file is downloaded.
+    materialize_lfs_file(adapter_weights, adapter_dir)
 
     print("[merge_adapter] Resolving adapter config...")
     resolve_adapter_config(adapter_dir)

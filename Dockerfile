@@ -6,22 +6,20 @@ ENV PATH="/opt/conda/bin:$PATH"
 
 COPY requirements.txt .
 COPY download_model.py .
-COPY merge_adapter.py .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 通过环境变量配置 adapter 仓库地址（默认走 https，避免 docker build 时缺少 ssh key）
-ENV ADAPTER_REPO_URL=https://gitee.com/yukinostuki/qwen3-4b-plus.git
-ENV BASE_MODEL=Qwen/Qwen3-4B
+# 直接从 ModelScope 下载已融合的模型（线上运行环境不再执行本地融合）
+ENV MODEL_ID=yukinostuki/qwen3-4b-ft-v1
+ENV MODEL_REVISION=latest
 
-# 下载基座模型 + clone adapter 仓库并融合成完整权重
-RUN python merge_adapter.py \
-        --base_model "$BASE_MODEL" \
-        --cache_dir /app/model \
-        --output_dir /app/model/merged
+RUN python download_model.py \
+        --model_name "$MODEL_ID" \
+        --cache_dir ./model \
+        --revision "$MODEL_REVISION"
 
-# 运行时默认加载融合后的目录
-ENV MODEL_DIR=/app/model/merged
+# 运行时默认加载下载的融合模型目录
+ENV MODEL_DIR=./model/$MODEL_ID
 
 # 强烈建议：评测环境直接用 vLLM
 ENV USE_VLLM=true

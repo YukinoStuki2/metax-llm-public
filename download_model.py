@@ -1,7 +1,9 @@
 
 import argparse
+import os
 import sys
 from modelscope import snapshot_download
+from modelscope.hub.api import HubApi
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Download model parameters settings')
@@ -14,8 +16,11 @@ def parse_args():
     return parser.parse_args()
 
 if __name__ == "__main__":
-    # api = HubApi()
-    # api.login('YOUR_MODELSCOPE_ACCESS_TOKEN')
+    token = os.environ.get("MODELSCOPE_API_TOKEN", "")
+    if token:
+        api = HubApi()
+        api.login(token)
+        print("Using MODELSCOPE_API_TOKEN from environment for authenticated download.")
     sh_args = parse_args()
     try:
         model_dir = snapshot_download(

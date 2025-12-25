@@ -28,6 +28,51 @@ PEFT 融合需要 `adapter_config.json`。
 
 否则融合脚本会报错并提示你补齐配置。
 
+### WSL/本地运行（创建 Python 虚拟环境）
+
+在 WSL（Ubuntu 24.04 等）里，如果你发现 `python3 -m venv` 报 `ensurepip is not available`，说明系统没装 venv/pip 组件。
+
+1) 安装系统依赖（需要输入 sudo 密码）：
+
+```bash
+sudo apt update
+sudo apt install -y python3.12-venv python3-pip
+```
+
+2) 创建并激活虚拟环境：
+
+```bash
+cd /path/to/metax-demo-mirror
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip setuptools wheel
+```
+
+3) 安装 merge 所需 Python 依赖（推荐用最小集合）：
+
+```bash
+pip install -r requirements-merge.txt
+```
+
+4) 安装 PyTorch
+
+- CPU-only（WSL/无 GPU 最稳）：
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+5) 运行融合：
+
+```bash
+python merge_adapter.py \
+  --base_model Qwen/Qwen3-4B \
+  --adapter_repo_url https://gitee.com/yukinostuki/qwen3-4b-plus.git \
+  --output_dir ./merged
+```
+
+如果你的 adapter 仓库里缺 `adapter_config.json`，按上文用 `ADAPTER_CONFIG_JSON` 或 `ADAPTER_CONFIG_PATH` 提供即可。
+
 # 大模型推理服务模板(MetaX 沐曦)
 
 本项目是一个极简的大模型推理服务模板，旨在帮助您快速构建一个可以通过API调用的推理服务器。

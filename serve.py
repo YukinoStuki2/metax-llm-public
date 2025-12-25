@@ -11,11 +11,25 @@ import uvicorn
 # ======================
 # 配置区：容器优先
 # ======================
-# Dockerfile 里会 ENV MODEL_DIR=/app/model/yukinostuki/qwen3-4b-ft-v1
-MODEL_DIR = os.environ.get("MODEL_DIR", "/app/model/yukinostuki/qwen3-4b-ft-v1")
+# Dockerfile / run_model.sh 下载到 ./model/$MODEL_ID；默认使用同一路径
+MODEL_DIR = os.environ.get(
+    "MODEL_DIR",
+    os.path.join("./model", os.environ.get("MODEL_ID", "yukinostuki/qwen3-4b-ft-v1")),
+)
 
-# 评测速度很关键：默认输出短一点
-MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "48"))
+# 生成参数（评测要求）
+SYSTEM_PROMPT = (
+    "你是评测答题模型。目标：ROUGE-L高分且尽量少输出token。\n"
+    "只输出答案正文，不要任何“思考过程/推理/分析/步骤/解释/客套”，不要出现“思考完成”等字样。\n\n"
+    "写法要求：\n"
+    "1) 尽量复用教材/标准表述，少改写，保持常见措辞与词序。\n"
+    "2) 用3-6个短句/短语覆盖关键点（定义/参数/公式/步骤/关键术语），不要长段落。\n"
+    "3) 不举例、不扩展背景、不重复。\n"
+    "4) 若题目要求代码：只输出最短可用的核心代码/伪代码骨架，不加Markdown围栏，不解释。"
+)
+
+MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "256"))
+WARMUP_PROMPT = "你好"
 
 # Batch 模式：GET / 返回 {"status":"batch"} 后，评测机会一次性把所有问题推到 /predict
 # 默认关闭；开启后 /predict 会兼容 prompt 为 list[str]
@@ -26,8 +40,8 @@ BATCH_CONCURRENCY = int(os.environ.get("BATCH_CONCURRENCY", "16"))
 
 # TEMPERATURE=0 -> 确定性生成（更稳更快）
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.0"))
-TOP_P = float(os.environ.get("TOP_P", "0.9"))
-TOP_K = int(os.environ.get("TOP_K", "50"))
+TOP_P = float(os.environ.get("TOP_P", "1.0"))
+TOP_K = int(os.environ.get("TOP_K", "1"))
 
 # vLLM 开关：auto/true/false
 USE_VLLM = os.environ.get("USE_VLLM", "true").lower()
@@ -88,8 +102,7 @@ def should_use_vllm() -> bool:
 
 def build_prompt(user_prompt: str) -> str:
     # 兼容：旧逻辑（不会走 chat template 的情况下）
-    prefix = "请用中文简洁作答，不要解释推理过程，不要复述问题。\n"
-    return prefix + user_prompt
+    return f"{SYSTEM_PROMPT}\n问题：{user_prompt}\n答案："
 
 
 def format_as_chat(tokenizer: Any, user_prompt: str) -> str:
@@ -98,7 +111,7 @@ def format_as_chat(tokenizer: Any, user_prompt: str) -> str:
     messages = [
         {
             "role": "system",
-            "content": "你是中文知识问答助手。请直接给出答案，不要输出推理过程，不要复述问题，答案尽量简短。",
+            "content": SYSTEM_PROMPT,
         },
         {"role": "user", "content": p},
     ]
@@ -123,6 +136,8 @@ async def lifespan(app: FastAPI):
     """启动时加载模型（评测 health check 阶段也会触发）。"""
     abs_model_dir = os.path.abspath(MODEL_DIR)
     print("MODEL_DIR =", abs_model_dir)
+
+    app.state.ready = False
 
     if not os.path.isdir(abs_model_dir):
         raise RuntimeError(f"MODEL_DIR not found: {abs_model_dir}")
@@ -158,6 +173,24 @@ async def lifespan(app: FastAPI):
             app.state.engine = AsyncLLMEngine.from_engine_args(engine_args)
             app.state.backend = "vllm"
             print("vLLM engine initialized successfully!")
+
+            async def _warmup_vllm():
+                try:
+                    sp = SamplingParams(
+                        temperature=0.0,
+                        top_p=1.0,
+                        top_k=TOP_K,
+                        max_tokens=8,
+                        frequency_penalty=0.0,
+                    )
+                    gen = app.state.engine.generate(WARMUP_PROMPT, sp, request_id="warmup")
+                    async for _ in gen:
+                        pass
+                    print("vLLM warmup done")
+                except Exception as e:
+                    print("vLLM warmup failed (continue):", e)
+
+            await _warmup_vllm()
         except Exception as e:
             print("vLLM init failed, fallback to transformers. Error:", e)
             app.state.backend = "transformers"
@@ -193,16 +226,22 @@ async def lifespan(app: FastAPI):
         # 预热（减少首请求延迟）
         try:
             _ = model.generate(
-                **tokenizer("你好", return_tensors="pt").to(model.device),
+                **tokenizer(WARMUP_PROMPT, return_tensors="pt").to(model.device),
                 max_new_tokens=8,
                 do_sample=False,
+                temperature=0.0,
+                top_p=1.0,
+                top_k=TOP_K,
             )
+            print("Transformers warmup done")
         except Exception as e:
             print("Warmup failed (can ignore):", e)
 
         app.state.tokenizer = tokenizer
         app.state.model = model
         print("Transformers model initialized successfully!")
+
+    app.state.ready = True
 
     yield
     print("Shutting down...")
@@ -213,6 +252,8 @@ app = FastAPI(title="LLM Service", lifespan=lifespan)
 
 @app.get("/")
 def health_check():
+    if not getattr(app.state, "ready", False):
+        return {"status": "warming"}
     if BATCH_MODE:
         return {"status": "batch"}
     return {"status": "ok"}
@@ -236,10 +277,11 @@ async def predict(req: PredictionRequest):
     if backend == "vllm":
         engine = app.state.engine
         sampling_params = SamplingParams(
-            temperature=TEMPERATURE,
-            top_p=1.0 if TEMPERATURE == 0.0 else TOP_P,
-            top_k=-1 if TEMPERATURE == 0.0 else TOP_K,
+            temperature=0.0,
+            top_p=1.0,
+            top_k=TOP_K,
             max_tokens=MAX_NEW_TOKENS,
+            frequency_penalty=0.0,
         )
 
         async def run_one(text_prompt: str) -> str:
@@ -276,10 +318,13 @@ async def predict(req: PredictionRequest):
         outputs: List[str] = []
         for pt in prompt_texts:
             inputs = tok(pt, return_tensors="pt").to(mdl.device)
-            do_sample = TEMPERATURE > 0
-            gen_kwargs = dict(max_new_tokens=MAX_NEW_TOKENS, do_sample=do_sample)
-            if do_sample:
-                gen_kwargs.update(dict(temperature=TEMPERATURE, top_p=TOP_P, top_k=TOP_K))
+            gen_kwargs = dict(
+                max_new_tokens=MAX_NEW_TOKENS,
+                do_sample=False,
+                temperature=0.0,
+                top_p=1.0,
+                top_k=TOP_K,
+            )
             out = mdl.generate(**inputs, **gen_kwargs)
             text = tok.decode(out[0], skip_special_tokens=True)
             if text.startswith(pt):
@@ -290,10 +335,13 @@ async def predict(req: PredictionRequest):
     prompt_text = prompt_texts[0]
     inputs = tok(prompt_text, return_tensors="pt").to(mdl.device)
 
-    do_sample = TEMPERATURE > 0
-    gen_kwargs = dict(max_new_tokens=MAX_NEW_TOKENS, do_sample=do_sample)
-    if do_sample:
-        gen_kwargs.update(dict(temperature=TEMPERATURE, top_p=TOP_P, top_k=TOP_K))
+    gen_kwargs = dict(
+        max_new_tokens=MAX_NEW_TOKENS,
+        do_sample=False,
+        temperature=0.0,
+        top_p=1.0,
+        top_k=TOP_K,
+    )
 
     out = mdl.generate(**inputs, **gen_kwargs)
     text = tok.decode(out[0], skip_special_tokens=True)

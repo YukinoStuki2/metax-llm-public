@@ -42,3 +42,20 @@
 - Default language: respond in Chinese (zh-cn) unless the user explicitly asks for English.
 - Keep changes minimal and measurable; prioritize speed optimizations that do not degrade accuracy.
 - Do not add heavy CI; this repo’s primary automation is GitHub→Gitee sync.
+- `requirements.txt` 只包含 serve.py 与 download_model.py 所需依赖，非必要不要改动或添加评测无关的库。
+
+## Command preflight (MUST DO BEFORE RUNNING COMMANDS)
+
+- `sudo` commands:
+	- Always prefer non-interactive checks first (e.g. `sudo -n true`) to detect whether a password prompt will appear.
+	- If a password prompt is required, stop and ask the user to input it (do not keep retrying blindly).
+	- Avoid running long install steps until sudo readiness is confirmed.
+
+- Python commands:
+	- Always run Python via the repo venv interpreter when available: `./.venv/bin/python` (or absolute path).
+	- If you plan to use `python`/`python3` directly, first confirm you are in the venv (e.g. `echo $VIRTUAL_ENV`) and that it points to this repo’s `.venv`.
+	- Likewise, use `./.venv/bin/pip` for installs to avoid contaminating system Python.
+
+- Other commands (general rule):
+	- Before executing, verify the required environment exists (e.g. tool installed, file/dir present, correct working directory).
+	- Examples: check `.venv/` exists before Python work; check `requirements*.txt` exists before installs; check Docker availability before docker commands; check model directories exist before starting the server.

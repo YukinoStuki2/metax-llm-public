@@ -1,7 +1,6 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 *.pyd
 .venv/
 env/
@@ -16,4 +15,13 @@ pip-delete-this-directory.txt
 # Docker build cache
 .docker-cache
 
-项目情况.txt
+# Local artifacts
+eval_details.jsonl
+
+# Model (local, large)
+model/
+models/
+merged/
+merge_work/
+*.safetensors
+*.bin
