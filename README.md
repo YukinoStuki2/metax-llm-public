@@ -1,3 +1,33 @@
+## 融合 Adapter（LoRA/PEFT）到基座模型
+
+如果你的微调仓库里只有 `adapter_model.safetensors`（没有完整的 merged 权重），可以在构建阶段下载基座模型并进行融合。
+
+本项目默认在 Docker 构建阶段执行 [merge_adapter.py](merge_adapter.py)：
+
+- 从 ModelScope 下载基座模型（默认 `Qwen/Qwen3-4B`）
+- 从 Gitee clone 你的 adapter 仓库（默认 `https://gitee.com/yukinostuki/qwen3-4b-plus.git`）
+- 使用 PEFT 将 adapter 融合到基座模型并导出到 `/app/model/merged`
+- 运行时 `MODEL_DIR=/app/model/merged`
+
+### 环境变量
+
+- `ADAPTER_REPO_URL`：adapter 仓库地址（可用 https 或 ssh 地址）
+- `ADAPTER_REPO_REF`：可选，指定分支/Tag/Commit
+- `BASE_MODEL`：ModelScope 基座模型 ID，默认 `Qwen/Qwen3-4B`
+- `BASE_REVISION`：基座模型 revision，默认 `master`
+- `MERGED_MODEL_DIR`：融合输出目录，默认 `/app/model/merged`
+
+### adapter_config.json 的要求
+
+PEFT 融合需要 `adapter_config.json`。
+
+如果你的 adapter 仓库里没有该文件（只提供了 `adapter_model.safetensors`），请额外提供其配置：
+
+- `ADAPTER_CONFIG_JSON`：直接传 JSON 字符串
+- 或 `ADAPTER_CONFIG_PATH`：指向一个 json 文件路径（构建阶段可用 COPY 注入）
+
+否则融合脚本会报错并提示你补齐配置。
+
 # 大模型推理服务模板(MetaX 沐曦)
 
 本项目是一个极简的大模型推理服务模板，旨在帮助您快速构建一个可以通过API调用的推理服务器。

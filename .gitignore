@@ -15,3 +15,5 @@ pip-delete-this-directory.txt
 
 # Docker build cache
 .docker-cache
+
+项目情况.txt

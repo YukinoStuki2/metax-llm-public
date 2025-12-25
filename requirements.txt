@@ -12,5 +12,8 @@ accelerate>=0.27.0
 sentencepiece>=0.1.99
 safetensors>=0.4.2
 
+# LoRA/Adapter merge
+peft>=0.10.0
+
 # Utils
 numpy>=1.24.0
