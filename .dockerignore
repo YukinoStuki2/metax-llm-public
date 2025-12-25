@@ -2,11 +2,27 @@
 .git
 .gitignore
 
+# GitHub meta
+.github/
+
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 *.pyd
 .venv/
 env/
 venv/
+
+# Local artifacts / large files
+model/
+models/
+merged/
+merge_work/
+eval_details.jsonl
+
+# Docs / misc
+*.docx
+
+# Weights (avoid accidentally copying into image)
+*.safetensors
+*.bin
