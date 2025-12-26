@@ -36,8 +36,10 @@ MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "256"))
 WARMUP_PROMPT = "你好"
 
 # Batch 模式：GET / 返回 {"status":"batch"} 后，评测机会一次性把所有问题推到 /predict
-# 默认关闭；开启后 /predict 会兼容 prompt 为 list[str]
-BATCH_MODE = os.environ.get("BATCH_MODE", "0") == "1"
+# 注意：评测/容器环境可能会在不同位置注入环境变量；因此这里不要在 import 时固化，
+# 统一通过函数动态读取，避免出现“明明开了 batch 但 health 仍返回 ok”的情况。
+def is_batch_mode() -> bool:
+    return os.environ.get("BATCH_MODE", "0") == "1"
 
 # batch 并发：并发提交给 vLLM 以触发引擎内 batching
 BATCH_CONCURRENCY = int(os.environ.get("BATCH_CONCURRENCY", "16"))
@@ -308,6 +310,7 @@ async def lifespan(app: FastAPI):
     else:
         abs_model_dir = os.path.abspath(MODEL_DIR)
     print("MODEL_DIR =", abs_model_dir)
+    print("BATCH_MODE =", os.environ.get("BATCH_MODE", "0"))
 
     app.state.ready = False
 
@@ -526,7 +529,7 @@ app = FastAPI(title="LLM Service", lifespan=lifespan)
 def health_check():
     if not getattr(app.state, "ready", False):
         return {"status": "warming"}
-    if BATCH_MODE:
+    if is_batch_mode():
         return {"status": "batch"}
     return {"status": "ok"}
 
