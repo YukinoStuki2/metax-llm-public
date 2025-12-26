@@ -27,7 +27,7 @@ ENV MAX_NEW_TOKENS=32
 
 # serve.py runtime knobs (keep defaults explicit)
 ENV BATCH_MODE=1 \
-        BATCH_CONCURRENCY=96 \
+        BATCH_CONCURRENCY=320 \
         TEMPERATURE=0.0 \
         TOP_P=1.0 \
         TOP_K=1 \

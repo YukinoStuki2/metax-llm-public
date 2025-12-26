@@ -43,7 +43,7 @@ def is_batch_mode() -> bool:
     return os.environ.get("BATCH_MODE", "0") == "1"
 
 # batch 并发：并发提交给 vLLM 以触发引擎内 batching
-BATCH_CONCURRENCY = int(os.environ.get("BATCH_CONCURRENCY", "96"))
+BATCH_CONCURRENCY = int(os.environ.get("BATCH_CONCURRENCY", "320"))
 
 # TEMPERATURE=0 -> 确定性生成（更稳更快）
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.0"))
@@ -383,7 +383,7 @@ async def lifespan(app: FastAPI):
             engine_kwargs = dict(
                 model=abs_model_dir,
                 tensor_parallel_size=1,
-                gpu_memory_utilization=float(os.environ.get("GPU_MEMORY_UTILIZATION", "0.90")),
+                gpu_memory_utilization=float(os.environ.get("GPU_MEMORY_UTILIZATION", "0.85")),
                 trust_remote_code=True,
                 dtype=os.environ.get("DTYPE", "float16"),
                 disable_log_stats=True,
