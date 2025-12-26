@@ -14,31 +14,33 @@ say() { echo "[run_model] $*"; }
 # ======================
 # 1) ENV defaults (match Dockerfile)
 # ======================
-export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
+export OMP_NUM_THREADS="4"
 
-export MODEL_ID="${MODEL_ID:-YukinoStuki/Qwen3-4B-Plus-Merged}"
-export MODEL_REVISION="${MODEL_REVISION:-master}"
+# NOTE: Use explicit assignment (do not inherit existing env) so that
+# pre-set env vars on a shared machine won't override this runner.
+export MODEL_ID="YukinoStuki/Qwen3-4B-Plus-LLM"
+export MODEL_REVISION="master"
 
-# Model download token (optional)
+# Model download token (optional): keep inheritable to avoid wiping credentials.
 export MODELSCOPE_API_TOKEN="${MODELSCOPE_API_TOKEN:-}"
 
 # Dockerfile downloads to ./model and sets runtime MODEL_DIR=./model/$MODEL_ID
-export MODEL_DIR="${MODEL_DIR:-./model/$MODEL_ID}"
+export MODEL_DIR="./model/$MODEL_ID"
 
 # Strongly prefer vLLM (as Dockerfile)
-export USE_VLLM="${USE_VLLM:-true}"
-export MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-48}"
+export USE_VLLM="true"
+export MAX_NEW_TOKENS="48"
 
 # serve.py runtime knobs (match Dockerfile)
-export BATCH_MODE="${BATCH_MODE:-0}"
-export BATCH_CONCURRENCY="${BATCH_CONCURRENCY:-16}"
-export TEMPERATURE="${TEMPERATURE:-0.0}"
-export TOP_P="${TOP_P:-1.0}"
-export TOP_K="${TOP_K:-1}"
-export GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.85}"
-export DTYPE="${DTYPE:-float16}"
-export TRANSFORMERS_DTYPE="${TRANSFORMERS_DTYPE:-float16}"
-export DEBUG_NET="${DEBUG_NET:-0}"
+export BATCH_MODE="1"
+export BATCH_CONCURRENCY="16"
+export TEMPERATURE="0.0"
+export TOP_P="1.0"
+export TOP_K="1"
+export GPU_MEMORY_UTILIZATION="0.85"
+export DTYPE="float16"
+export TRANSFORMERS_DTYPE="float16"
+export DEBUG_NET="0"
 
 # ======================
 # 2) Python venv + install deps
