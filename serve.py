@@ -54,6 +54,16 @@ DEBUG_NET = os.environ.get("DEBUG_NET", "0") == "1"
 # vLLM 在部分环境可用 ModelScope（保留）
 os.environ["VLLM_USE_MODELSCOPE"] = "True"
 
+# Cross-platform safety:
+# - On MetaX cloud (C500), vllm_metax platform plugin may exist and should run.
+# - On non-MetaX machines (e.g. WSL + RTX4090), if vllm_metax is accidentally
+#   installed, it can be auto-activated and break CUDA execution.
+# If user explicitly sets VLLM_PLUGINS, respect it.
+_HAS_MX_DEVICE = any(os.path.exists(p) for p in ("/dev/mxcd", "/dev/mxc0", "/dev/mxc"))
+if "VLLM_PLUGINS" not in os.environ and not _HAS_MX_DEVICE:
+    # Empty string => no plugins loaded (built-in CUDA detection still works).
+    os.environ["VLLM_PLUGINS"] = ""
+
 
 def _unset_env_if_blank(key: str) -> None:
     """Unset env var if it exists but is blank.
@@ -202,6 +212,8 @@ async def lifespan(app: FastAPI):
             print("CUDA_VISIBLE_DEVICES =", os.environ.get("CUDA_VISIBLE_DEVICES"))
             print("NVIDIA_VISIBLE_DEVICES =", os.environ.get("NVIDIA_VISIBLE_DEVICES"))
             print("VLLM_DEVICE =", os.environ.get("VLLM_DEVICE"))
+            print("VLLM_PLUGINS =", os.environ.get("VLLM_PLUGINS"))
+            print("HAS_MX_DEVICE =", _HAS_MX_DEVICE)
 
             # 注意：尽量只使用通用/稳定参数，避免不同 vLLM 版本不兼容
             engine_kwargs = dict(
@@ -216,6 +228,19 @@ async def lifespan(app: FastAPI):
             # Some vLLM versions/platform plugins do NOT accept `device`.
             try:
                 sig = inspect.signature(AsyncEngineArgs.__init__)
+
+                # MetaX driver stacks can be sensitive to advanced features in
+                # newer vLLM (V1 engine, compilation, chunked prefill). Prefer
+                # safer settings by default when we detect MetaX devices.
+                if _HAS_MX_DEVICE:
+                    if "enforce_eager" in sig.parameters:
+                        engine_kwargs["enforce_eager"] = True
+                    if "enable_chunked_prefill" in sig.parameters:
+                        engine_kwargs["enable_chunked_prefill"] = False
+                    if "compilation_config" in sig.parameters:
+                        # Reduce compilation/cudagraph usage; keep schema minimal.
+                        engine_kwargs["compilation_config"] = {"level": 0}
+
                 if "device" in sig.parameters:
                     vllm_device = (os.environ.get("VLLM_DEVICE") or "cuda").strip() or "cuda"
                     engine_kwargs["device"] = vllm_device
