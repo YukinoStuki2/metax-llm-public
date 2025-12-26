@@ -43,24 +43,25 @@ export DEBUG_NET="${DEBUG_NET:-0}"
 # ======================
 # 2) Python venv + install deps
 # ======================
-PYTHON_BIN="${PYTHON_BIN:-python3}"
-
-if [[ ! -x ./.venv/bin/python ]]; then
-  say "Creating venv: ./.venv"
-  "$PYTHON_BIN" -m venv .venv
+# Use global/system python to allow reusing preinstalled vLLM/torch on cloud hosts.
+# This mirrors Dockerfile behavior (pip install into the image environment).
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="${PYTHON_BIN:-python3}"
+else
+  PYTHON_BIN="${PYTHON_BIN:-python}"
 fi
 
-PYTHON="$(pwd)/.venv/bin/python"
+say "Using python: $PYTHON_BIN"
 
 say "Installing requirements.txt"
-"$PYTHON" -m pip install --no-cache-dir -r requirements.txt
+"$PYTHON_BIN" -m pip install --no-cache-dir -r requirements.txt
 
 # ======================
 # 3) Download model (match Dockerfile RUN python download_model.py ...)
 # ======================
 say "Downloading model: $MODEL_ID (revision=$MODEL_REVISION)"
 mkdir -p ./model
-"$PYTHON" download_model.py \
+"$PYTHON_BIN" download_model.py \
   --model_name "$MODEL_ID" \
   --cache_dir ./model \
   --revision "$MODEL_REVISION"
@@ -69,4 +70,4 @@ mkdir -p ./model
 # 4) Run server (match Dockerfile CMD)
 # ======================
 say "Starting server on 0.0.0.0:8000"
-exec "$PYTHON" -m uvicorn serve:app --host 0.0.0.0 --port 8000
+exec "$PYTHON_BIN" -m uvicorn serve:app --host 0.0.0.0 --port 8000
