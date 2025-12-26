@@ -25,3 +25,5 @@ merged/
 merge_work/
 *.safetensors
 *.bin
+
+qwen3_4b_finetune_qa_train_v2_speed_rougel.jsonl
