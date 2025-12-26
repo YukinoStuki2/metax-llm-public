@@ -106,6 +106,18 @@ def strip_think(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
 
 
+def _maybe_parse_estimated_max_len(err: Exception) -> Optional[int]:
+    """Parse vLLM KV-cache error message for suggested max model length."""
+    msg = str(err)
+    m = re.search(r"estimated maximum model length is\s+(\d+)", msg)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except Exception:
+        return None
+
+
 class PredictionRequest(BaseModel):
     # 单条：str；batch：list[str]
     prompt: Union[str, List[str]]
@@ -261,6 +273,9 @@ async def lifespan(app: FastAPI):
                 disable_log_stats=True,
             )
 
+            # Optional override for max model length (helps avoid KV-cache OOM on smaller GPUs).
+            max_model_len_env = os.environ.get("MAX_MODEL_LEN")
+
             # Some vLLM versions/platform plugins do NOT accept `device`.
             try:
                 sig = inspect.signature(AsyncEngineArgs.__init__)
@@ -277,6 +292,13 @@ async def lifespan(app: FastAPI):
                         # Reduce compilation/cudagraph usage; keep schema minimal.
                         engine_kwargs["compilation_config"] = {"level": 0}
 
+                if max_model_len_env is not None and "max_model_len" in sig.parameters:
+                    try:
+                        engine_kwargs["max_model_len"] = int(max_model_len_env)
+                        print("Using MAX_MODEL_LEN =", engine_kwargs["max_model_len"])
+                    except Exception:
+                        pass
+
                 if "device" in sig.parameters:
                     vllm_device = (os.environ.get("VLLM_DEVICE") or "cuda").strip() or "cuda"
                     engine_kwargs["device"] = vllm_device
@@ -284,8 +306,28 @@ async def lifespan(app: FastAPI):
             except Exception:
                 pass
 
-            engine_args = AsyncEngineArgs(**engine_kwargs)
-            app.state.engine = AsyncLLMEngine.from_engine_args(engine_args)
+            def _build_engine() -> AsyncLLMEngine:
+                engine_args = AsyncEngineArgs(**engine_kwargs)
+                return AsyncLLMEngine.from_engine_args(engine_args)
+
+            try:
+                app.state.engine = _build_engine()
+            except Exception as e:
+                # If KV cache isn't enough for the model's configured max seq len,
+                # retry once with a lowered max_model_len when supported.
+                suggested_len = _maybe_parse_estimated_max_len(e)
+                try:
+                    sig = inspect.signature(AsyncEngineArgs.__init__)
+                    can_set_len = ("max_model_len" in sig.parameters)
+                except Exception:
+                    can_set_len = False
+
+                if suggested_len is not None and can_set_len and ("max_model_len" not in engine_kwargs):
+                    print("KV cache insufficient for max seq len; retry with max_model_len =", suggested_len)
+                    engine_kwargs["max_model_len"] = int(suggested_len)
+                    app.state.engine = _build_engine()
+                else:
+                    raise
             app.state.backend = "vllm"
             print("vLLM engine initialized successfully!")
 
