@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import json
+import logging
 from contextlib import asynccontextmanager
 import asyncio
 import uuid
@@ -216,6 +217,29 @@ class PredictionResponse(BaseModel):
     response: Union[str, List[str]]
 
 
+def _coerce_log_level(level_name: str, default: int = logging.WARNING) -> int:
+    name = (level_name or "").strip().upper()
+    return int(getattr(logging, name, default))
+
+
+def _set_logger_level_prefix(prefix: str, level: int) -> None:
+    """Set logging level for a logger prefix (e.g. 'vllm').
+
+    vLLM can be extremely chatty in batch mode (e.g., per-request INFO logs like
+    'Added request ...'). These logs are not useful for evaluation and add
+    overhead. We therefore default to WARNING for vLLM loggers.
+    """
+
+    try:
+        logging.getLogger(prefix).setLevel(level)
+        # Update existing child loggers that may already be created.
+        for name in list(getattr(logging.root.manager, "loggerDict", {}).keys()):
+            if name == prefix or name.startswith(prefix + "."):
+                logging.getLogger(name).setLevel(level)
+    except Exception:
+        pass
+
+
 # ======================
 # 可选依赖探测
 # ======================
@@ -227,6 +251,9 @@ try:
     from vllm.engine.arg_utils import AsyncEngineArgs
     from vllm.engine.async_llm_engine import AsyncLLMEngine
     _vllm_ok = True
+
+    _vllm_level = _coerce_log_level(os.environ.get("VLLM_LOG_LEVEL", "WARNING"))
+    _set_logger_level_prefix("vllm", _vllm_level)
 except Exception:
     _vllm_ok = False
 
