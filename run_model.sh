@@ -28,7 +28,7 @@ export DEBUG_NET=${DEBUG_NET:-0}
 PYTHON=${PYTHON:-"$(pwd)/.venv/bin/python"}
 PIP=${PIP:-"$(pwd)/.venv/bin/pip"}
 PYTHON_FALLBACK=${PYTHON_FALLBACK:-python3}
-PIP_FALLBACK=${PIP_FALLBACK:-pip3}
+PIP_FALLBACK=${PIP_FALLBACK:-pip}
 
 # If your cloud host already preinstalls torch/vLLM (and you don't want to reinstall),
 # set USE_SYSTEM_PYTHON=1.
@@ -82,8 +82,15 @@ else
 fi
 
 if [[ ! -x "$PIP" ]]; then
-  echo "[run_model] ERROR: pip not found in venv. Try reinstalling python3-venv / ensurepip."
-  exit 1
+  # In system-python mode (or when skipping installs), a pip executable may not exist.
+  # We'll rely on `$PYTHON -m pip` when installs are needed.
+  if [[ "${SKIP_PIP_INSTALL:-0}" != "1" ]]; then
+    if ! "$PYTHON" -m pip --version >/dev/null 2>&1; then
+      echo "[run_model] ERROR: pip not available for $PYTHON."
+      echo "[run_model] Hint: install pip (e.g. python -m ensurepip) or set SKIP_PIP_INSTALL=1."
+      exit 1
+    fi
+  fi
 fi
 
 echo "[run_model] Using python: $PYTHON"
@@ -96,7 +103,7 @@ have_py_module() {
 
 pip_install() {
   # shellcheck disable=SC2068
-  "$PIP" install --no-cache-dir $@
+  "$PYTHON" -m pip install --no-cache-dir $@
 }
 
 # ----- Install Python dependencies -----

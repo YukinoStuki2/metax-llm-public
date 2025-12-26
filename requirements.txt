@@ -10,3 +10,6 @@ transformers>=4.39.0
 accelerate>=0.27.0
 sentencepiece>=0.1.99
 safetensors>=0.4.2
+
+# vLLM CUDA platform detection uses NVML via pynvml (provided by nvidia-ml-py)
+nvidia-ml-py>=12.0.0
