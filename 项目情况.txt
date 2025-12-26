@@ -132,7 +132,7 @@ Fork 了沐曦模板仓库（metax-demo），并已按要求添加了部署公�
 
 已微调并得到 LoRA/adapter，之后合并（merge）得到完整权重目录（本地测试跑通）。
 
-已将合并后的模型上传到了 ModelScope（仓库：yukinostuki/qwen3-4b-ft-v1，可见链接在上传日志中显示创建成功）。
+已将合并后的模型上传到了 ModelScope（仓库：YukinoStuki/Qwen3-4B-Plus-Merged，可见链接在上传日志中显示创建成功）。
 
 评测机已提交过一次：准确率 0.2035、速度 123.43 tokens/s（不达标，需提升准确率≥0.35 以及速度）。
 
@@ -152,9 +152,9 @@ serve.py：核心推理服务，提供 GET / 和 POST /predict
 
 ModelScope 仓库
 
-合并后的模型已上传到 ModelScope：yukinostuki/qwen3-4b-ft-v1（master）
+合并后的模型已上传到 ModelScope：YukinoStuki/Qwen3-4B-Plus-Merged（master）
 
-download_model.py 在 Docker build 阶段会把这个仓库拉到 /app/model/yukinostuki/qwen3-4b-ft-v1 或类似目录。
+download_model.py 在 Docker build 阶段会把这个仓库拉到 /app/model/YukinoStuki/Qwen3-4B-Plus-Merged 或类似目录。
 
 4. 评测准确率计算函数（必须对齐）
 
@@ -190,4 +190,4 @@ Gitee（评测用）：git@gitee.com:yukinostuki/metax-demo.git（master）
 
 GitHub（镜像/Codex 用）：git@github.com:YukinoStuki2/metax-demo-mirror.git（master）
 
-ModelScope 模型：yukinostuki/qwen3-4b-ft-v1（已上传）
+ModelScope 模型：YukinoStuki/Qwen3-4B-Plus-Merged（已上传）

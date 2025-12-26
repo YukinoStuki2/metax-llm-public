@@ -7,7 +7,7 @@ from modelscope.hub.api import HubApi
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Download model parameters settings')
-    parser.add_argument('--model_name', type=str, default='Qwen/Qwen3-4B',
+    parser.add_argument('--model_name', type=str, default=os.environ.get('MODEL_ID', 'YukinoStuki/Qwen3-4B-Plus-Merged'),
                         help='Model name in format: organization/model_name')
     parser.add_argument('--cache_dir', type=str, default='./',
                         help='Directory to save the model')

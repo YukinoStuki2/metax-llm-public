@@ -77,6 +77,13 @@ python merge_adapter.py \
 
 本项目是一个极简的大模型推理服务模板，旨在帮助您快速构建一个可以通过API调用的推理服务器。
 
+## 默认模型（ModelScope）
+
+当前仓库默认直接从 ModelScope 下载已融合的模型权重：`YukinoStuki/Qwen3-4B-Plus-Merged`。
+
+- 构建阶段由 `download_model.py` 下载到 `./model/$MODEL_ID`
+- 运行阶段默认从 `MODEL_DIR=./model/$MODEL_ID` 加载（见 `Dockerfile` / `serve.py`）
+
 ## 项目结构
 
 - `Dockerfile`: 用于构建容器镜像的配置文件，MetaX提供docker构建流程，该文件中

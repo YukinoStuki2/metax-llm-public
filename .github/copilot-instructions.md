@@ -33,7 +33,7 @@
 ## Project-specific facts (assume unless user overrides)
 
 - Base image is fixed (do not change `FROM` in Dockerfile).
-- Model source: ModelScope `yukinostuki/qwen3-4b-ft-v1` (merged weights). Downloaded during build via `download_model.py` into `/app/model/...`.
+- Model source: ModelScope `YukinoStuki/Qwen3-4B-Plus-Merged` (merged weights). Downloaded during build via `download_model.py` into `/app/model/...`.
 - Serving entrypoint: `serve.py` (FastAPI+uvicorn). Prefer vLLM when available; transformers is a fallback.
 - Local eval helper: `eval_local.py` calls `/predict` and computes RougeL-F1 in the same style as the judge.
 
