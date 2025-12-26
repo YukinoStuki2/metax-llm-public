@@ -188,9 +188,26 @@ async def lifespan(app: FastAPI):
     if should_use_vllm():
         print("Initializing vLLM engine...")
         try:
+            # Helpful diagnostics for cloud hosts
+            try:
+                import torch  # type: ignore
+
+                print("torch.cuda.is_available() =", torch.cuda.is_available())
+                if torch.cuda.is_available():
+                    print("torch.cuda.device_count() =", torch.cuda.device_count())
+            except Exception as e:
+                print("torch cuda probe failed:", e)
+
+            print("CUDA_VISIBLE_DEVICES =", os.environ.get("CUDA_VISIBLE_DEVICES"))
+            print("NVIDIA_VISIBLE_DEVICES =", os.environ.get("NVIDIA_VISIBLE_DEVICES"))
+            print("VLLM_DEVICE =", os.environ.get("VLLM_DEVICE"))
+
+            vllm_device = (os.environ.get("VLLM_DEVICE") or "cuda").strip() or "cuda"
+
             # 注意：尽量只使用通用/稳定参数，避免不同 vLLM 版本不兼容
             engine_args = AsyncEngineArgs(
                 model=abs_model_dir,
+                device=vllm_device,
                 tensor_parallel_size=1,
                 gpu_memory_utilization=float(os.environ.get("GPU_MEMORY_UTILIZATION", "0.85")),
                 trust_remote_code=True,

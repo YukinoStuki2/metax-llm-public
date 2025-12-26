@@ -31,7 +31,7 @@ PYTHON_FALLBACK=${PYTHON_FALLBACK:-python3}
 PIP_FALLBACK=${PIP_FALLBACK:-pip3}
 
 # If your cloud host already preinstalls torch/vLLM (and you don't want to reinstall),
-# set USE_SYSTEM_PYTHON=1 (or let the script auto-detect and use it).
+# set USE_SYSTEM_PYTHON=1.
 USE_SYSTEM_PYTHON=${USE_SYSTEM_PYTHON:-0}
 
 # Skip pip install steps (recommended when using system python on a managed host).
@@ -55,12 +55,13 @@ system_has_runtime_stack() {
   return 0
 }
 
-if [[ ! -x "$PYTHON" ]]; then
-  if [[ "$USE_SYSTEM_PYTHON" == "1" ]]; then
-    echo "[run_model] USE_SYSTEM_PYTHON=1; using system python"
-    PYTHON="$PYTHON_FALLBACK"
-    PIP="$PIP_FALLBACK"
-  else
+if [[ "$USE_SYSTEM_PYTHON" == "1" ]]; then
+  echo "[run_model] USE_SYSTEM_PYTHON=1; using system python (ignore .venv)"
+  PYTHON="$PYTHON_FALLBACK"
+  PIP="$PIP_FALLBACK"
+  SKIP_PIP_INSTALL=${SKIP_PIP_INSTALL:-1}
+else
+  if [[ ! -x "$PYTHON" ]]; then
     if system_has_runtime_stack; then
       echo "[run_model] Detected preinstalled runtime stack; using system python"
       PYTHON="$PYTHON_FALLBACK"
