@@ -120,7 +120,8 @@ def should_use_vllm() -> bool:
         cuda_ok = False
 
     if USE_VLLM == "true":
-        return cuda_ok
+        # Force vLLM attempt; init errors will fall back to transformers.
+        return True
     if USE_VLLM == "false":
         return False
     return cuda_ok
