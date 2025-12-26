@@ -375,8 +375,14 @@ async def lifespan(app: FastAPI):
                     if "enable_chunked_prefill" in sig.parameters:
                         engine_kwargs["enable_chunked_prefill"] = False
                     if "compilation_config" in sig.parameters:
-                        # Cross-version friendly default: use a dict.
-                        engine_kwargs["compilation_config"] = {"level": 0}
+                        # Do NOT set compilation_config by default.
+                        # Different vLLM builds/plugins disagree on the accepted type
+                        # (dict vs JSON string), and incorrect coercion can break
+                        # startup. If users need to override, provide a JSON string
+                        # via VLLM_COMPILATION_CONFIG.
+                        cfg = os.environ.get("VLLM_COMPILATION_CONFIG")
+                        if cfg:
+                            engine_kwargs["compilation_config"] = cfg
 
                 if max_model_len_env is not None and "max_model_len" in sig.parameters:
                     try:
@@ -399,37 +405,10 @@ async def lifespan(app: FastAPI):
             try:
                 app.state.engine = _build_engine()
             except Exception as e:
+                # If compilation_config is present (from env override), try to
+                # auto-fix its type once across vLLM versions.
                 if _HAS_MX_DEVICE and _maybe_fix_compilation_config(engine_kwargs, e):
-                    try:
-                        app.state.engine = _build_engine()
-                    except Exception as e2:
-                        e = e2
-                    else:
-                        # compilation_config fixed; continue startup
-                        app.state.backend = "vllm"
-                        print("vLLM engine initialized successfully!")
-
-                        async def _warmup_vllm():
-                            try:
-                                sp = SamplingParams(
-                                    temperature=0.0,
-                                    top_p=1.0,
-                                    top_k=TOP_K,
-                                    max_tokens=8,
-                                    frequency_penalty=0.0,
-                                )
-                                gen = app.state.engine.generate(WARMUP_PROMPT, sp, request_id="warmup")
-                                async for _ in gen:
-                                    pass
-                                print("vLLM warmup done")
-                            except Exception as e:
-                                print("vLLM warmup failed (continue):", e)
-
-                        await _warmup_vllm()
-                        app.state.ready = True
-                        yield
-                        print("Shutting down...")
-                        return
+                    app.state.engine = _build_engine()
 
                 # If KV cache isn't enough for the model's configured max seq len,
                 # retry once with a lowered max_model_len when supported.
