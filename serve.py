@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from contextlib import asynccontextmanager
 import asyncio
 import uuid
@@ -48,6 +49,10 @@ TOP_K = int(os.environ.get("TOP_K", "1"))
 # vLLM 开关：auto/true/false
 USE_VLLM = os.environ.get("USE_VLLM", "true").lower()
 
+# 若设置为 1：vLLM 初始化失败时直接退出（不回退到 transformers）。
+# 默认 0：vLLM 失败时回退，保证服务可启动。
+FORCE_VLLM = os.environ.get("FORCE_VLLM", "0") == "1"
+
 # ⚠️ 评测 run 阶段断网：不要每次 predict 进行联网探测（会拖慢）
 DEBUG_NET = os.environ.get("DEBUG_NET", "0") == "1"
 
@@ -90,6 +95,12 @@ _unset_env_if_blank("CUDA_VISIBLE_DEVICES")
 _unset_env_if_blank("NVIDIA_VISIBLE_DEVICES")
 _unset_env_if_blank("VLLM_DEVICE")
 
+
+def _has_c_compiler() -> bool:
+    # Triton (used by vLLM) may compile small C/CUDA helper modules at runtime.
+    # If no compiler exists, vLLM can fail early with "Failed to find C compiler".
+    return any(shutil.which(x) for x in ("cc", "gcc", "clang"))
+
 def strip_think(text: str) -> str:
     """去掉可能的 <think>...</think>，避免输出过长。"""
     return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
@@ -129,6 +140,11 @@ except Exception:
 
 def should_use_vllm() -> bool:
     if not _vllm_ok:
+        return False
+
+    # If we know vLLM will fail due to missing toolchain, prefer transformers
+    # unless user explicitly forces vLLM.
+    if not FORCE_VLLM and not _has_c_compiler():
         return False
 
     # Prefer vLLM only when CUDA is actually available.
@@ -182,7 +198,17 @@ def format_as_chat(tokenizer: Any, user_prompt: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """启动时加载模型（评测 health check 阶段也会触发）。"""
-    abs_model_dir = os.path.abspath(MODEL_DIR)
+    # Local-friendly fallback: if user didn't set MODEL_DIR and the default
+    # ./model/$MODEL_ID doesn't exist, but ./merged exists, use ./merged.
+    if "MODEL_DIR" not in os.environ:
+        default_dir = os.path.abspath(MODEL_DIR)
+        merged_dir = os.path.abspath("./merged")
+        if (not os.path.isdir(default_dir)) and os.path.isdir(merged_dir):
+            abs_model_dir = merged_dir
+        else:
+            abs_model_dir = default_dir
+    else:
+        abs_model_dir = os.path.abspath(MODEL_DIR)
     print("MODEL_DIR =", abs_model_dir)
 
     app.state.ready = False
@@ -282,8 +308,7 @@ async def lifespan(app: FastAPI):
             await _warmup_vllm()
         except Exception as e:
             print("vLLM init failed, fallback to transformers. Error:", e)
-            # If user explicitly forces vLLM, do not fall back (some stacks segfault).
-            if USE_VLLM == "true":
+            if FORCE_VLLM:
                 raise
             app.state.backend = "transformers"
     else:
