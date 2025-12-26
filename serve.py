@@ -3,6 +3,7 @@ import re
 from contextlib import asynccontextmanager
 import asyncio
 import uuid
+import inspect
 from typing import Any, List, Optional, Union
 
 from fastapi import FastAPI
@@ -202,18 +203,27 @@ async def lifespan(app: FastAPI):
             print("NVIDIA_VISIBLE_DEVICES =", os.environ.get("NVIDIA_VISIBLE_DEVICES"))
             print("VLLM_DEVICE =", os.environ.get("VLLM_DEVICE"))
 
-            vllm_device = (os.environ.get("VLLM_DEVICE") or "cuda").strip() or "cuda"
-
             # 注意：尽量只使用通用/稳定参数，避免不同 vLLM 版本不兼容
-            engine_args = AsyncEngineArgs(
+            engine_kwargs = dict(
                 model=abs_model_dir,
-                device=vllm_device,
                 tensor_parallel_size=1,
                 gpu_memory_utilization=float(os.environ.get("GPU_MEMORY_UTILIZATION", "0.85")),
                 trust_remote_code=True,
                 dtype=os.environ.get("DTYPE", "float16"),
                 disable_log_stats=True,
             )
+
+            # Some vLLM versions/platform plugins do NOT accept `device`.
+            try:
+                sig = inspect.signature(AsyncEngineArgs.__init__)
+                if "device" in sig.parameters:
+                    vllm_device = (os.environ.get("VLLM_DEVICE") or "cuda").strip() or "cuda"
+                    engine_kwargs["device"] = vllm_device
+                    print("AsyncEngineArgs supports device =", vllm_device)
+            except Exception:
+                pass
+
+            engine_args = AsyncEngineArgs(**engine_kwargs)
             app.state.engine = AsyncLLMEngine.from_engine_args(engine_args)
             app.state.backend = "vllm"
             print("vLLM engine initialized successfully!")
@@ -237,6 +247,9 @@ async def lifespan(app: FastAPI):
             await _warmup_vllm()
         except Exception as e:
             print("vLLM init failed, fallback to transformers. Error:", e)
+            # If user explicitly forces vLLM, do not fall back (some stacks segfault).
+            if USE_VLLM == "true":
+                raise
             app.state.backend = "transformers"
     else:
         app.state.backend = "transformers"
