@@ -64,6 +64,16 @@ if "VLLM_PLUGINS" not in os.environ and not _HAS_MX_DEVICE:
     # Empty string => no plugins loaded (built-in CUDA detection still works).
     os.environ["VLLM_PLUGINS"] = ""
 
+# MetaX stability defaults: prefer legacy (non-V1) engine unless explicitly enabled.
+# vLLM V1 uses a separate EngineCore process and can be more sensitive to
+# driver/runtime issues on some vendor stacks.
+if _HAS_MX_DEVICE and "VLLM_USE_V1" not in os.environ:
+    os.environ["VLLM_USE_V1"] = "0"
+
+# Prefer a safer default on MetaX unless user overrides.
+if _HAS_MX_DEVICE and "GPU_MEMORY_UTILIZATION" not in os.environ:
+    os.environ["GPU_MEMORY_UTILIZATION"] = "0.60"
+
 
 def _unset_env_if_blank(key: str) -> None:
     """Unset env var if it exists but is blank.
