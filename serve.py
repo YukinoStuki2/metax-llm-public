@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import json
 from contextlib import asynccontextmanager
 import asyncio
 import uuid
@@ -306,8 +307,9 @@ async def lifespan(app: FastAPI):
                     if "enable_chunked_prefill" in sig.parameters:
                         engine_kwargs["enable_chunked_prefill"] = False
                     if "compilation_config" in sig.parameters:
-                        # Reduce compilation/cudagraph usage; keep schema minimal.
-                        engine_kwargs["compilation_config"] = {"level": 0}
+                        # Some vLLM builds parse compilation_config as a JSON string.
+                        # Use json.dumps to avoid invalid JSON like "{'level': 0}".
+                        engine_kwargs["compilation_config"] = json.dumps({"level": 0})
 
                 if max_model_len_env is not None and "max_model_len" in sig.parameters:
                     try:
