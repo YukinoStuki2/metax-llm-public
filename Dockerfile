@@ -24,6 +24,7 @@ ENV MODEL_DIR=./model/$MODEL_ID
 # 强烈建议：评测环境直接用 vLLM
 ENV USE_VLLM=true
 ENV MAX_NEW_TOKENS=32
+ENV MAX_NEW_TOKENS_CODE=192
 
 # serve.py runtime knobs (keep defaults explicit)
 ENV BATCH_MODE=1 \

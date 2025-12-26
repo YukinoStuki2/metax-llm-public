@@ -34,6 +34,9 @@ SYSTEM_PROMPT = (
 )
 
 MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "32"))
+# 对“需要代码/实现”的题，允许更长输出，避免截断导致 RougeL 偏低。
+# 注意：默认不把全局 MAX_NEW_TOKENS 拉大，以免短答题浪费 token、拖慢吞吐。
+MAX_NEW_TOKENS_CODE = int(os.environ.get("MAX_NEW_TOKENS_CODE", "192"))
 WARMUP_PROMPT = "你好"
 
 # Batch 模式：GET / 返回 {"status":"batch"} 后，评测机会一次性把所有问题推到 /predict
@@ -49,6 +52,67 @@ BATCH_CONCURRENCY = int(os.environ.get("BATCH_CONCURRENCY", "320"))
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.0"))
 TOP_P = float(os.environ.get("TOP_P", "1.0"))
 TOP_K = int(os.environ.get("TOP_K", "1"))
+
+
+def _normalize_text(s: str) -> str:
+    return (s or "").strip().lower()
+
+
+def is_code_question(user_prompt: str) -> bool:
+    """Heuristic: determine whether the question likely needs code/implementation.
+
+    plus 题里很多是 Triton/TileLang/CUDA/Kernel 相关，参考答案会给伪代码或代码片段。
+    对这种题把 max_new_tokens 提高能显著减少截断。
+    """
+
+    p = _normalize_text(user_prompt)
+    if not p:
+        return False
+
+    # User override
+    extra = os.environ.get("CODE_QUESTION_KEYWORDS", "")
+    extra_words = [w.strip().lower() for w in extra.split(",") if w.strip()]
+
+    keywords = [
+        # Chinese
+        "代码",
+        "伪代码",
+        "实现",
+        "kernel",
+        "算子",
+        "cuda",
+        "triton",
+        "tilelang",
+        "cudagraph",
+        "共享内存",
+        "shared memory",
+        "线程",
+        "block",
+        "grid",
+        "索引",
+        "矩阵乘法",
+        "卷积",
+        "depthwise",
+        "dilated",
+        "空洞卷积",
+        # Common code tokens
+        "@triton",
+        "tl.",
+        "__global__",
+        "#include",
+        "import ",
+        "def ",
+        "for ",
+        "while ",
+        "return ",
+    ]
+    keywords.extend(extra_words)
+
+    return any(k in p for k in keywords)
+
+
+def pick_max_new_tokens(user_prompt: str) -> int:
+    return MAX_NEW_TOKENS_CODE if is_code_question(user_prompt) else MAX_NEW_TOKENS
 
 # vLLM 开关：auto/true/false
 USE_VLLM = os.environ.get("USE_VLLM", "true").lower()
@@ -572,21 +636,22 @@ async def predict(req: PredictionRequest):
 
     prompts = to_list(req.prompt)
     prompt_texts = [format_as_chat(tokenizer, p) for p in prompts]
+    per_max_tokens = [pick_max_new_tokens(p) for p in prompts]
     backend = getattr(app.state, "backend", "transformers")
 
     if backend == "vllm":
         engine = app.state.engine
-        sampling_params = SamplingParams(
-            temperature=0.0,
-            top_p=1.0,
-            top_k=TOP_K,
-            max_tokens=MAX_NEW_TOKENS,
-            frequency_penalty=0.0,
-        )
 
-        async def run_one(text_prompt: str) -> str:
+        async def run_one(text_prompt: str, max_tokens: int) -> str:
             # vLLM 的 request_id 需要唯一；batch 并发下用 uuid 避免竞争条件
             rid = uuid.uuid4().hex
+            sampling_params = SamplingParams(
+                temperature=0.0,
+                top_p=1.0,
+                top_k=TOP_K,
+                max_tokens=int(max_tokens),
+                frequency_penalty=0.0,
+            )
             results = engine.generate(text_prompt, sampling_params, rid)
             final_output = None
             async for request_output in results:
@@ -597,15 +662,15 @@ async def predict(req: PredictionRequest):
 
         # 单条：直接跑；batch：限制并发以触发 vLLM 内部 batching
         if len(prompt_texts) == 1:
-            return PredictionResponse(response=await run_one(prompt_texts[0]))
+            return PredictionResponse(response=await run_one(prompt_texts[0], per_max_tokens[0]))
 
         sem = asyncio.Semaphore(max(1, BATCH_CONCURRENCY))
 
-        async def guarded(tp: str) -> str:
+        async def guarded(tp: str, mt: int) -> str:
             async with sem:
-                return await run_one(tp)
+                return await run_one(tp, mt)
 
-        outputs = await asyncio.gather(*[guarded(tp) for tp in prompt_texts])
+        outputs = await asyncio.gather(*[guarded(tp, mt) for tp, mt in zip(prompt_texts, per_max_tokens)])
         return PredictionResponse(response=outputs)
 
     # transformers 路线
@@ -615,10 +680,10 @@ async def predict(req: PredictionRequest):
     if len(prompt_texts) != 1:
         # transformers 路线不建议 batch（慢且占显存），但为了兼容协议仍给出串行结果
         outputs: List[str] = []
-        for pt in prompt_texts:
+        for pt, mt in zip(prompt_texts, per_max_tokens):
             inputs = tok(pt, return_tensors="pt").to(mdl.device)
             gen_kwargs = dict(
-                max_new_tokens=MAX_NEW_TOKENS,
+                max_new_tokens=int(mt),
                 do_sample=False,
                 temperature=0.0,
                 top_p=1.0,
@@ -633,9 +698,10 @@ async def predict(req: PredictionRequest):
 
     prompt_text = prompt_texts[0]
     inputs = tok(prompt_text, return_tensors="pt").to(mdl.device)
+    mt = per_max_tokens[0]
 
     gen_kwargs = dict(
-        max_new_tokens=MAX_NEW_TOKENS,
+        max_new_tokens=int(mt),
         do_sample=False,
         temperature=0.0,
         top_p=1.0,
