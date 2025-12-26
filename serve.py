@@ -107,15 +107,32 @@ def strip_think(text: str) -> str:
 
 
 def _maybe_parse_estimated_max_len(err: Exception) -> Optional[int]:
-    """Parse vLLM KV-cache error message for suggested max model length."""
-    msg = str(err)
-    m = re.search(r"estimated maximum model length is\s+(\d+)", msg)
-    if not m:
-        return None
-    try:
-        return int(m.group(1))
-    except Exception:
-        return None
+    """Parse vLLM KV-cache error message for suggested max model length.
+
+    Note: vLLM may raise a generic RuntimeError in the parent process while the
+    worker process logs a detailed ValueError. We therefore scan the exception
+    chain (cause/context) as well.
+    """
+
+    def _iter_exc_chain(e: BaseException):
+        seen: set[int] = set()
+        cur: Optional[BaseException] = e
+        while cur is not None and id(cur) not in seen:
+            seen.add(id(cur))
+            yield cur
+            # Prefer explicit cause; otherwise fall back to context.
+            cur = cur.__cause__ or cur.__context__
+
+    for ex in _iter_exc_chain(err):
+        msg = str(ex)
+        m = re.search(r"estimated maximum model length is\s+(\d+)", msg)
+        if not m:
+            continue
+        try:
+            return int(m.group(1))
+        except Exception:
+            return None
+    return None
 
 
 class PredictionRequest(BaseModel):
@@ -322,10 +339,26 @@ async def lifespan(app: FastAPI):
                 except Exception:
                     can_set_len = False
 
-                if suggested_len is not None and can_set_len and ("max_model_len" not in engine_kwargs):
-                    print("KV cache insufficient for max seq len; retry with max_model_len =", suggested_len)
-                    engine_kwargs["max_model_len"] = int(suggested_len)
-                    app.state.engine = _build_engine()
+                if can_set_len and ("max_model_len" not in engine_kwargs):
+                    retry_len: Optional[int] = None
+                    if suggested_len is not None:
+                        retry_len = int(suggested_len)
+                    else:
+                        # Some vLLM versions wrap the detailed KV-cache error in a
+                        # generic EngineCore failure; try a conservative default.
+                        msg = str(e)
+                        if "Engine core initialization failed" in msg or "KV cache" in msg:
+                            try:
+                                retry_len = int(os.environ.get("SAFE_MAX_MODEL_LEN", "38400"))
+                            except Exception:
+                                retry_len = 38400
+
+                    if retry_len is not None:
+                        print("Retry vLLM init with max_model_len =", retry_len)
+                        engine_kwargs["max_model_len"] = int(retry_len)
+                        app.state.engine = _build_engine()
+                    else:
+                        raise
                 else:
                     raise
             app.state.backend = "vllm"
