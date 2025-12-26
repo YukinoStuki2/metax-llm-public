@@ -27,17 +27,57 @@ export DEBUG_NET=${DEBUG_NET:-0}
 # ----- Python / pip selection (prefer repo venv) -----
 PYTHON=${PYTHON:-"$(pwd)/.venv/bin/python"}
 PIP=${PIP:-"$(pwd)/.venv/bin/pip"}
+PYTHON_FALLBACK=${PYTHON_FALLBACK:-python3}
+PIP_FALLBACK=${PIP_FALLBACK:-pip3}
+
+# If your cloud host already preinstalls torch/vLLM (and you don't want to reinstall),
+# set USE_SYSTEM_PYTHON=1 (or let the script auto-detect and use it).
+USE_SYSTEM_PYTHON=${USE_SYSTEM_PYTHON:-0}
+
+# Skip pip install steps (recommended when using system python on a managed host).
+SKIP_PIP_INSTALL=${SKIP_PIP_INSTALL:-}
+
+system_have_py_module() {
+  local mod="$1"
+  "$PYTHON_FALLBACK" -c "import $mod" >/dev/null 2>&1
+}
+
+system_has_runtime_stack() {
+  command -v "$PYTHON_FALLBACK" >/dev/null 2>&1 || return 1
+  # Minimal runtime deps for this repo + vLLM path
+  system_have_py_module fastapi || return 1
+  system_have_py_module uvicorn || return 1
+  system_have_py_module pydantic || return 1
+  system_have_py_module modelscope || return 1
+  system_have_py_module transformers || return 1
+  system_have_py_module torch || return 1
+  system_have_py_module vllm || return 1
+  return 0
+}
 
 if [[ ! -x "$PYTHON" ]]; then
-  echo "[run_model] .venv not found; creating venv in $(pwd)/.venv"
-  PYTHON_BOOTSTRAP=${PYTHON_FALLBACK:-python3}
-  if ! command -v "$PYTHON_BOOTSTRAP" >/dev/null 2>&1; then
-    echo "[run_model] ERROR: python3 not found. Please install Python 3.10+ first."
-    exit 1
+  if [[ "$USE_SYSTEM_PYTHON" == "1" ]]; then
+    echo "[run_model] USE_SYSTEM_PYTHON=1; using system python"
+    PYTHON="$PYTHON_FALLBACK"
+    PIP="$PIP_FALLBACK"
+  else
+    if system_has_runtime_stack; then
+      echo "[run_model] Detected preinstalled runtime stack; using system python"
+      PYTHON="$PYTHON_FALLBACK"
+      PIP="$PIP_FALLBACK"
+      # In system-python mode, default to NOT installing anything.
+      SKIP_PIP_INSTALL=${SKIP_PIP_INSTALL:-1}
+    else
+      echo "[run_model] .venv not found; creating venv in $(pwd)/.venv"
+      if ! command -v "$PYTHON_FALLBACK" >/dev/null 2>&1; then
+        echo "[run_model] ERROR: python3 not found. Please install Python 3.10+ first."
+        exit 1
+      fi
+      "$PYTHON_FALLBACK" -m venv .venv
+      PYTHON="$(pwd)/.venv/bin/python"
+      PIP="$(pwd)/.venv/bin/pip"
+    fi
   fi
-  "$PYTHON_BOOTSTRAP" -m venv .venv
-  PYTHON="$(pwd)/.venv/bin/python"
-  PIP="$(pwd)/.venv/bin/pip"
 fi
 
 if [[ ! -x "$PIP" ]]; then
@@ -59,8 +99,12 @@ pip_install() {
 }
 
 # ----- Install Python dependencies -----
-# Always install declared deps first.
-pip_install -r requirements.txt
+# Always install declared deps first (unless SKIP_PIP_INSTALL=1).
+if [[ "${SKIP_PIP_INSTALL:-0}" == "1" ]]; then
+  echo "[run_model] SKIP_PIP_INSTALL=1; skipping pip installs"
+else
+  pip_install -r requirements.txt
+fi
 
 # Extra runtime deps for bare-metal servers (Docker base image already ships these).
 # You can override installation behavior via env:
@@ -73,6 +117,10 @@ VLLM_SPEC=${VLLM_SPEC:-vllm}
 
 if ! have_py_module torch; then
   echo "[run_model] torch missing; installing..."
+  if [[ "${SKIP_PIP_INSTALL:-0}" == "1" ]]; then
+    echo "[run_model] ERROR: torch missing but SKIP_PIP_INSTALL=1. Install torch first or unset SKIP_PIP_INSTALL."
+    exit 1
+  fi
   if [[ -n "${TORCH_INDEX_URL:-}" ]]; then
     pip_install --index-url "$TORCH_INDEX_URL" "$TORCH_SPEC"
   else
@@ -91,6 +139,14 @@ fi
 if [[ "${USE_VLLM}" != "false" ]]; then
   if ! have_py_module vllm; then
     echo "[run_model] vllm missing; attempting install (optional unless USE_VLLM=true)..."
+    if [[ "${SKIP_PIP_INSTALL:-0}" == "1" ]]; then
+      if [[ "${USE_VLLM}" == "true" ]]; then
+        echo "[run_model] ERROR: USE_VLLM=true but vllm is not installed and SKIP_PIP_INSTALL=1."
+        exit 1
+      fi
+      echo "[run_model] vllm not available; continuing with transformers backend (USE_VLLM=false)."
+      export USE_VLLM=false
+    else
     set +e
     pip_install "$VLLM_SPEC"
     vllm_rc=$?
@@ -104,6 +160,7 @@ if [[ "${USE_VLLM}" != "false" ]]; then
       fi
       echo "[run_model] vllm not available; continuing with transformers backend (USE_VLLM=false)."
       export USE_VLLM=false
+    fi
     fi
   fi
 fi

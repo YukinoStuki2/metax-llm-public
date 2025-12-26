@@ -53,6 +53,22 @@ DEBUG_NET = os.environ.get("DEBUG_NET", "0") == "1"
 # vLLM 在部分环境可用 ModelScope（保留）
 os.environ["VLLM_USE_MODELSCOPE"] = "True"
 
+
+def _unset_env_if_blank(key: str) -> None:
+    """Unset env var if it exists but is blank.
+
+    Some cloud runtimes accidentally set CUDA_VISIBLE_DEVICES="" which can
+    trigger vLLM/torch errors like: "Device string must not be empty".
+    """
+    if key in os.environ and os.environ.get(key, "").strip() == "":
+        del os.environ[key]
+
+
+# Defensive: avoid empty device strings breaking vLLM.
+_unset_env_if_blank("CUDA_VISIBLE_DEVICES")
+_unset_env_if_blank("NVIDIA_VISIBLE_DEVICES")
+_unset_env_if_blank("VLLM_DEVICE")
+
 def strip_think(text: str) -> str:
     """去掉可能的 <think>...</think>，避免输出过长。"""
     return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
@@ -91,11 +107,23 @@ except Exception:
 
 
 def should_use_vllm() -> bool:
+    if not _vllm_ok:
+        return False
+
+    # Prefer vLLM only when CUDA is actually available.
+    cuda_ok = False
+    try:
+        import torch  # type: ignore
+
+        cuda_ok = bool(getattr(torch, "cuda", None) and torch.cuda.is_available())
+    except Exception:
+        cuda_ok = False
+
     if USE_VLLM == "true":
-        return True
+        return cuda_ok
     if USE_VLLM == "false":
         return False
-    return _vllm_ok
+    return cuda_ok
 
 
 def build_prompt(user_prompt: str) -> str:
