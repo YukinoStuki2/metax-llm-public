@@ -29,15 +29,15 @@ export MODEL_DIR="./model/$MODEL_ID"
 
 # Strongly prefer vLLM (as Dockerfile)
 export USE_VLLM="true"
-export MAX_NEW_TOKENS="48"
+export MAX_NEW_TOKENS="32"
 
 # serve.py runtime knobs (match Dockerfile)
 export BATCH_MODE="1"
-export BATCH_CONCURRENCY="16"
+export BATCH_CONCURRENCY="96"
 export TEMPERATURE="0.0"
 export TOP_P="1.0"
 export TOP_K="1"
-export GPU_MEMORY_UTILIZATION="0.85"
+export GPU_MEMORY_UTILIZATION="0.90"
 export DTYPE="float16"
 export TRANSFORMERS_DTYPE="float16"
 export DEBUG_NET="0"

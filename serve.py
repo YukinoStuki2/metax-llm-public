@@ -33,7 +33,7 @@ SYSTEM_PROMPT = (
     "4) 若题目要求代码：只输出最短可用的核心代码/伪代码骨架，不加Markdown围栏，不解释。"
 )
 
-MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "256"))
+MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "32"))
 WARMUP_PROMPT = "你好"
 
 # Batch 模式：GET / 返回 {"status":"batch"} 后，评测机会一次性把所有问题推到 /predict
@@ -43,7 +43,7 @@ def is_batch_mode() -> bool:
     return os.environ.get("BATCH_MODE", "0") == "1"
 
 # batch 并发：并发提交给 vLLM 以触发引擎内 batching
-BATCH_CONCURRENCY = int(os.environ.get("BATCH_CONCURRENCY", "16"))
+BATCH_CONCURRENCY = int(os.environ.get("BATCH_CONCURRENCY", "96"))
 
 # TEMPERATURE=0 -> 确定性生成（更稳更快）
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.0"))
@@ -383,7 +383,7 @@ async def lifespan(app: FastAPI):
             engine_kwargs = dict(
                 model=abs_model_dir,
                 tensor_parallel_size=1,
-                gpu_memory_utilization=float(os.environ.get("GPU_MEMORY_UTILIZATION", "0.85")),
+                gpu_memory_utilization=float(os.environ.get("GPU_MEMORY_UTILIZATION", "0.90")),
                 trust_remote_code=True,
                 dtype=os.environ.get("DTYPE", "float16"),
                 disable_log_stats=True,

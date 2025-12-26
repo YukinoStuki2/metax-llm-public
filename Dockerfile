@@ -23,15 +23,15 @@ ENV MODEL_DIR=./model/$MODEL_ID
 
 # 强烈建议：评测环境直接用 vLLM
 ENV USE_VLLM=true
-ENV MAX_NEW_TOKENS=48
+ENV MAX_NEW_TOKENS=32
 
 # serve.py runtime knobs (keep defaults explicit)
 ENV BATCH_MODE=1 \
-        BATCH_CONCURRENCY=16 \
+        BATCH_CONCURRENCY=96 \
         TEMPERATURE=0.0 \
         TOP_P=1.0 \
         TOP_K=1 \
-        GPU_MEMORY_UTILIZATION=0.85 \
+        GPU_MEMORY_UTILIZATION=0.90 \
         DTYPE=float16 \
         TRANSFORMERS_DTYPE=float16 \
         DEBUG_NET=0
