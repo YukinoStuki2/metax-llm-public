@@ -152,6 +152,28 @@ def call_predict(endpoint: str, prompt: str, timeout: int = 300) -> str:
     return json.dumps(data, ensure_ascii=False)
 
 
+def call_predict_batch(endpoint: str, prompts: List[str], timeout: int = 300) -> List[str]:
+    r = requests.post(endpoint, json={"prompt": prompts}, timeout=timeout)
+    r.raise_for_status()
+    data = r.json()
+
+    if isinstance(data, dict) and "response" in data:
+        resp = data["response"]
+        if isinstance(resp, list):
+            return ["" if x is None else str(x) for x in resp]
+        # Server might still return a single string; replicate to match length
+        if isinstance(resp, str):
+            return [resp] * len(prompts)
+        return [str(resp)] * len(prompts)
+
+    # If server returns a raw list (non-standard), accept it.
+    if isinstance(data, list):
+        return ["" if x is None else str(x) for x in data]
+
+    # fallback: treat as one giant string
+    return [json.dumps(data, ensure_ascii=False)] * len(prompts)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--endpoint", default="http://127.0.0.1:8000/predict")
@@ -164,6 +186,7 @@ def main():
     ap.add_argument("--sleep", type=float, default=0.0, help="sleep between requests")
     ap.add_argument("--model_dir_for_tokenizer", default="", help="local path or modelscope/hf id for token counting")
     ap.add_argument("--strip_q_suffix", action="store_true", help="also compute a cleaned score by removing duplicated question suffix")
+    ap.add_argument("--batch", action="store_true", help="send all questions in one /predict request (prompt=list[str])")
     ap.add_argument("--save_jsonl", default="eval_details.jsonl")
     args = ap.parse_args()
 
@@ -206,58 +229,120 @@ def main():
         n_ok = 0
 
         with open(args.save_jsonl, "a", encoding="utf-8") as f:
-            for i, (q, ref) in enumerate(tqdm(qa, desc=f"Eval-{name}")):
+            if args.batch:
+                qs = [q for (q, _ref) in qa]
                 t0 = time.perf_counter()
                 try:
-                    pred = call_predict(args.endpoint, q, timeout=args.timeout)
-                    ok = True
+                    preds = call_predict_batch(args.endpoint, qs, timeout=args.timeout)
+                    ok_all = True
                 except Exception as e:
-                    pred = f"[ERROR] {e}"
-                    ok = False
+                    preds = [f"[ERROR] {e}"] * len(qs)
+                    ok_all = False
                 t1 = time.perf_counter()
-                dt = t1 - t0
-                total_time += dt
+                dt_total = t1 - t0
+                total_time += dt_total
 
-                score_raw = rougeL_f1(pred, ref, scorer) if ok else 0.0
-                sum_score_raw += score_raw
+                # Normalize length
+                if len(preds) < len(qa):
+                    preds = preds + [""] * (len(qa) - len(preds))
+                if len(preds) > len(qa):
+                    preds = preds[: len(qa)]
 
-                pred_clean = pred
-                score_clean = None
-                if args.strip_q_suffix and ok:
-                    pred_clean = strip_question_suffix(pred, q)
-                    score_clean = rougeL_f1(pred_clean, ref, scorer)
-                    sum_score_clean += score_clean
+                per_item_latency = (dt_total / len(qa)) if len(qa) > 0 else 0.0
+                for i, ((q, ref), pred) in enumerate(tqdm(list(zip(qa, preds)), desc=f"Eval-{name}-batch")):
+                    ok = ok_all and (not (isinstance(pred, str) and pred.startswith("[ERROR]")))
 
-                ptok = count_tokens(tokenizer, q)
-                otok_raw = count_tokens(tokenizer, pred)
-                otok_clean = count_tokens(tokenizer, pred_clean)
+                    score_raw = rougeL_f1(pred, ref, scorer) if ok else 0.0
+                    sum_score_raw += score_raw
 
-                total_prompt_tokens += ptok
-                total_output_tokens_raw += otok_raw
-                total_output_tokens_clean += otok_clean
-                if ok:
-                    n_ok += 1
+                    pred_clean = pred
+                    score_clean = None
+                    if args.strip_q_suffix and ok:
+                        pred_clean = strip_question_suffix(pred, q)
+                        score_clean = rougeL_f1(pred_clean, ref, scorer)
+                        sum_score_clean += score_clean
 
-                rec = {
-                    "dataset": name,
-                    "idx": i,
-                    "question": q,
-                    "ref": ref,
-                    "pred_raw": pred,
-                    "pred_clean": pred_clean,
-                    "ok": ok,
-                    "latency_s": dt,
-                    "rougeL_f1_raw": score_raw,
-                    "rougeL_f1_clean": score_clean,
-                    "prompt_tokens": ptok,
-                    "output_tokens_raw": otok_raw,
-                    "output_tokens_clean": otok_clean,
-                }
-                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-                all_results.append(rec)
+                    ptok = count_tokens(tokenizer, q)
+                    otok_raw = count_tokens(tokenizer, pred)
+                    otok_clean = count_tokens(tokenizer, pred_clean)
 
-                if args.sleep > 0:
-                    time.sleep(args.sleep)
+                    total_prompt_tokens += ptok
+                    total_output_tokens_raw += otok_raw
+                    total_output_tokens_clean += otok_clean
+                    if ok:
+                        n_ok += 1
+
+                    rec = {
+                        "dataset": name,
+                        "idx": i,
+                        "question": q,
+                        "ref": ref,
+                        "pred_raw": pred,
+                        "pred_clean": pred_clean,
+                        "ok": ok,
+                        "latency_s": per_item_latency,
+                        "rougeL_f1_raw": score_raw,
+                        "rougeL_f1_clean": score_clean,
+                        "prompt_tokens": ptok,
+                        "output_tokens_raw": otok_raw,
+                        "output_tokens_clean": otok_clean,
+                        "batch_total_latency_s": dt_total,
+                    }
+                    f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                    all_results.append(rec)
+            else:
+                for i, (q, ref) in enumerate(tqdm(qa, desc=f"Eval-{name}")):
+                    t0 = time.perf_counter()
+                    try:
+                        pred = call_predict(args.endpoint, q, timeout=args.timeout)
+                        ok = True
+                    except Exception as e:
+                        pred = f"[ERROR] {e}"
+                        ok = False
+                    t1 = time.perf_counter()
+                    dt = t1 - t0
+                    total_time += dt
+
+                    score_raw = rougeL_f1(pred, ref, scorer) if ok else 0.0
+                    sum_score_raw += score_raw
+
+                    pred_clean = pred
+                    score_clean = None
+                    if args.strip_q_suffix and ok:
+                        pred_clean = strip_question_suffix(pred, q)
+                        score_clean = rougeL_f1(pred_clean, ref, scorer)
+                        sum_score_clean += score_clean
+
+                    ptok = count_tokens(tokenizer, q)
+                    otok_raw = count_tokens(tokenizer, pred)
+                    otok_clean = count_tokens(tokenizer, pred_clean)
+
+                    total_prompt_tokens += ptok
+                    total_output_tokens_raw += otok_raw
+                    total_output_tokens_clean += otok_clean
+                    if ok:
+                        n_ok += 1
+
+                    rec = {
+                        "dataset": name,
+                        "idx": i,
+                        "question": q,
+                        "ref": ref,
+                        "pred_raw": pred,
+                        "pred_clean": pred_clean,
+                        "ok": ok,
+                        "latency_s": dt,
+                        "rougeL_f1_raw": score_raw,
+                        "rougeL_f1_clean": score_clean,
+                        "prompt_tokens": ptok,
+                        "output_tokens_raw": otok_raw,
+                        "output_tokens_clean": otok_clean,
+                    }
+                    f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                    all_results.append(rec)
+
+                    if args.sleep > 0:
+                        time.sleep(args.sleep)
 
         denom = len(qa) if len(qa) > 0 else 1
         acc_raw = sum_score_raw / denom

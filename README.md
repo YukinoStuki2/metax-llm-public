@@ -125,6 +125,21 @@ python merge_adapter.py \
 ```
 请务必保持此API契约不变！
 
+## Batch 推理（推荐提速）
+
+评测系统在访问健康检查 `GET /` 时，如果返回 `{"status":"batch"}`，会进入 batch 模式：随后会把所有问题一次性推送到 `POST /predict`。
+
+本仓库默认开启 batch（见 `Dockerfile` 的 `BATCH_MODE=1`）：
+
+- 单条模式：`{"prompt": "..."}` → `{"response": "..."}`
+- Batch 模式：`{"prompt": ["...", "...", ...]}` → `{"response": ["...", "...", ...]}`
+
+本地评测脚本支持 batch 调用：
+
+```bash
+python eval_local.py --batch --strip_q_suffix --which bonus --max_n 50
+```
+
 ## 环境说明
 
 ### 软件包版本

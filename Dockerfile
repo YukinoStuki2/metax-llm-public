@@ -26,7 +26,7 @@ ENV USE_VLLM=true
 ENV MAX_NEW_TOKENS=48
 
 # serve.py runtime knobs (keep defaults explicit)
-ENV BATCH_MODE=0 \
+ENV BATCH_MODE=1 \
         BATCH_CONCURRENCY=16 \
         TEMPERATURE=0.0 \
         TOP_P=1.0 \
