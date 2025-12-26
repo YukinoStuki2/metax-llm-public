@@ -18,7 +18,7 @@ import uvicorn
 # Dockerfile / run_model.sh 下载到 ./model/$MODEL_ID；默认使用同一路径
 MODEL_DIR = os.environ.get(
     "MODEL_DIR",
-    os.path.join("./model", os.environ.get("MODEL_ID", "YukinoStuki/Qwen3-4B-Plus-Merged")),
+    os.path.join("./model", os.environ.get("MODEL_ID", "YukinoStuki/Qwen3-4B-Plus-LLM")),
 )
 
 # 生成参数（评测要求）

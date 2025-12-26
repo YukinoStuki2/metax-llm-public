@@ -79,7 +79,7 @@ python merge_adapter.py \
 
 ## 默认模型（ModelScope）
 
-当前仓库默认直接从 ModelScope 下载已融合的模型权重：`YukinoStuki/Qwen3-4B-Plus-Merged`。
+当前仓库默认直接从 ModelScope 下载模型权重：`YukinoStuki/Qwen3-4B-Plus-LLM`。
 
 - 构建阶段由 `download_model.py` 下载到 `./model/$MODEL_ID`
 - 运行阶段默认从 `MODEL_DIR=./model/$MODEL_ID` 加载（见 `Dockerfile` / `serve.py`）

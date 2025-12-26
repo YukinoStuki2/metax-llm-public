@@ -10,7 +10,7 @@ COPY download_model.py .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 直接从 ModelScope 下载已融合的模型（线上运行环境不再执行本地融合）
-ENV MODEL_ID=YukinoStuki/Qwen3-4B-Plus-Merged
+ENV MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM
 ENV MODEL_REVISION=master
 
 RUN python download_model.py \
