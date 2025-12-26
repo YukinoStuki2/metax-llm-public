@@ -211,11 +211,11 @@ async def lifespan(app: FastAPI):
         try:
             # Helpful diagnostics for cloud hosts
             try:
-                import torch  # type: ignore
+                import torch as _torch  # type: ignore
 
-                print("torch.cuda.is_available() =", torch.cuda.is_available())
-                if torch.cuda.is_available():
-                    print("torch.cuda.device_count() =", torch.cuda.device_count())
+                print("torch.cuda.is_available() =", _torch.cuda.is_available())
+                if _torch.cuda.is_available():
+                    print("torch.cuda.device_count() =", _torch.cuda.device_count())
             except Exception as e:
                 print("torch cuda probe failed:", e)
 
