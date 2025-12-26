@@ -84,6 +84,8 @@ python merge_adapter.py \
 - 构建阶段由 `download_model.py` 下载到 `./model/$MODEL_ID`
 - 运行阶段默认从 `MODEL_DIR=./model/$MODEL_ID` 加载（见 `Dockerfile` / `serve.py`）
 
+默认 revision 为 `master`（可通过 `MODEL_REVISION` 覆盖，例如 tag/分支名）。
+
 ## 项目结构
 
 - `Dockerfile`: 用于构建容器镜像的配置文件，MetaX提供docker构建流程，该文件中

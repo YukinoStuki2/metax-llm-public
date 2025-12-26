@@ -7,7 +7,7 @@ set -euo pipefail
 # ----- Env defaults (can be overridden before calling this script) -----
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
 export MODEL_ID=${MODEL_ID:-YukinoStuki/Qwen3-4B-Plus-Merged}
-export MODEL_REVISION=${MODEL_REVISION:-latest}
+export MODEL_REVISION=${MODEL_REVISION:-master}
 export MODELSCOPE_API_TOKEN=${MODELSCOPE_API_TOKEN:-}
 export MODEL_DIR=${MODEL_DIR:-"$(pwd)/model/$MODEL_ID"}
 export USE_VLLM=${USE_VLLM:-auto}
