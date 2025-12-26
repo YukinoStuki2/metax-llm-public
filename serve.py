@@ -136,6 +136,74 @@ def _maybe_parse_estimated_max_len(err: Exception) -> Optional[int]:
     return None
 
 
+def _maybe_fix_compilation_config(engine_kwargs: dict, err: Exception) -> bool:
+    """Try to fix compilation_config type across vLLM versions.
+
+    Some vLLM builds expect compilation_config as:
+    - a dict / CompilationConfig dataclass
+    - OR a JSON string that can be parsed into CompilationConfig
+
+    We detect common Pydantic error patterns and convert between dict <-> JSON string.
+    Returns True if engine_kwargs was modified.
+    """
+
+    if "compilation_config" not in engine_kwargs:
+        return False
+
+    msg = str(err)
+    if (
+        "compilation_config" not in msg
+        and "CompilationConfig" not in msg
+        and "Invalid JSON" not in msg
+        and "json_invalid" not in msg
+    ):
+        return False
+
+    val = engine_kwargs.get("compilation_config")
+
+    # Case A: expects dict/dataclass, but got a JSON string.
+    if isinstance(val, str) and (
+        "Input should be a dictionary" in msg
+        or "dataclass_type" in msg
+    ):
+        try:
+            engine_kwargs["compilation_config"] = json.loads(val)
+            return True
+        except Exception:
+            return False
+
+    # Case B: expects JSON string, but got dict.
+    if isinstance(val, dict) and (
+        "Invalid JSON" in msg
+        or "json_invalid" in msg
+        or "Input should be a valid string" in msg
+    ):
+        engine_kwargs["compilation_config"] = json.dumps(val)
+        return True
+
+    # Case C: got a Python dict string like "{'level': 0}"; convert to valid JSON string.
+    if isinstance(val, str) and ("Invalid JSON" in msg or "json_invalid" in msg):
+        try:
+            parsed = json.loads(val)
+        except Exception:
+            parsed = None
+        if isinstance(parsed, dict):
+            engine_kwargs["compilation_config"] = json.dumps(parsed)
+            return True
+
+        try:
+            import ast
+
+            parsed2 = ast.literal_eval(val)
+            if isinstance(parsed2, dict):
+                engine_kwargs["compilation_config"] = json.dumps(parsed2)
+                return True
+        except Exception:
+            return False
+
+    return False
+
+
 class PredictionRequest(BaseModel):
     # 单条：str；batch：list[str]
     prompt: Union[str, List[str]]
@@ -307,9 +375,8 @@ async def lifespan(app: FastAPI):
                     if "enable_chunked_prefill" in sig.parameters:
                         engine_kwargs["enable_chunked_prefill"] = False
                     if "compilation_config" in sig.parameters:
-                        # Some vLLM builds parse compilation_config as a JSON string.
-                        # Use json.dumps to avoid invalid JSON like "{'level': 0}".
-                        engine_kwargs["compilation_config"] = json.dumps({"level": 0})
+                        # Cross-version friendly default: use a dict.
+                        engine_kwargs["compilation_config"] = {"level": 0}
 
                 if max_model_len_env is not None and "max_model_len" in sig.parameters:
                     try:
@@ -332,6 +399,38 @@ async def lifespan(app: FastAPI):
             try:
                 app.state.engine = _build_engine()
             except Exception as e:
+                if _HAS_MX_DEVICE and _maybe_fix_compilation_config(engine_kwargs, e):
+                    try:
+                        app.state.engine = _build_engine()
+                    except Exception as e2:
+                        e = e2
+                    else:
+                        # compilation_config fixed; continue startup
+                        app.state.backend = "vllm"
+                        print("vLLM engine initialized successfully!")
+
+                        async def _warmup_vllm():
+                            try:
+                                sp = SamplingParams(
+                                    temperature=0.0,
+                                    top_p=1.0,
+                                    top_k=TOP_K,
+                                    max_tokens=8,
+                                    frequency_penalty=0.0,
+                                )
+                                gen = app.state.engine.generate(WARMUP_PROMPT, sp, request_id="warmup")
+                                async for _ in gen:
+                                    pass
+                                print("vLLM warmup done")
+                            except Exception as e:
+                                print("vLLM warmup failed (continue):", e)
+
+                        await _warmup_vllm()
+                        app.state.ready = True
+                        yield
+                        print("Shutting down...")
+                        return
+
                 # If KV cache isn't enough for the model's configured max seq len,
                 # retry once with a lowered max_model_len when supported.
                 suggested_len = _maybe_parse_estimated_max_len(e)
