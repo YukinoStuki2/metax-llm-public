@@ -42,8 +42,8 @@ export TRANSFORMERS_DTYPE="float16"
 
 # vLLM 吞吐/量化（AWQ）
 export ENABLE_PREFIX_CACHING="1"
-export VLLM_QUANTIZATION="awq"
-export VLLM_LOAD_FORMAT="auto"
+export VLLM_QUANTIZATION=""
+export VLLM_LOAD_FORMAT=""
 
 # 可选：不设置表示交给 vLLM 自行决定
 export VLLM_MAX_NUM_SEQS=""
