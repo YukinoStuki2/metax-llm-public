@@ -14,68 +14,44 @@ say() { echo "[run_model] $*"; }
 # ======================
 # 1) 环境变量默认值（与 Dockerfile 保持一致）
 # ======================
-: "${OMP_NUM_THREADS:=4}"
-export OMP_NUM_THREADS
+export OMP_NUM_THREADS="4"
 
-: "${MODEL_ID:=YukinoStuki/Qwen3-4B-Plus-LLM}"
-export MODEL_ID
-: "${MODEL_REVISION:=master}"
-export MODEL_REVISION
+export MODEL_ID="YukinoStuki/Qwen3-4B-Plus-LLM-AWQ"
+export MODEL_REVISION="master"
 
-# 模型下载 token（可选）：不在脚本内写死默认值；若用户已设置则直接使用。
-: "${MODELSCOPE_API_TOKEN:=}"
-export MODELSCOPE_API_TOKEN
+# 模型下载 token（可选）：此脚本不读取本机环境变量，避免不同机器环境不一致。
+export MODELSCOPE_API_TOKEN=""
 
 # Dockerfile 下载到 ./model，并设置运行时 MODEL_DIR=./model/$MODEL_ID
-if [[ -z "${MODEL_DIR:-}" ]]; then
-  MODEL_DIR="./model/$MODEL_ID"
-fi
-export MODEL_DIR
+export MODEL_DIR="./model/$MODEL_ID"
 
 # 强烈建议优先使用 vLLM（与 Dockerfile 一致）
-: "${USE_VLLM:=true}"
-export USE_VLLM
-: "${MAX_NEW_TOKENS:=32}"
-export MAX_NEW_TOKENS
-: "${MAX_NEW_TOKENS_CODE:=192}"
-export MAX_NEW_TOKENS_CODE
+export USE_VLLM="true"
+export MAX_NEW_TOKENS="32"
+export MAX_NEW_TOKENS_CODE="192"
 
 # serve.py 运行时参数（与 Dockerfile 保持一致）
-: "${BATCH_MODE:=1}"
-export BATCH_MODE
-: "${BATCH_CONCURRENCY:=358}"
-export BATCH_CONCURRENCY
-: "${TEMPERATURE:=0.0}"
-export TEMPERATURE
-: "${TOP_P:=1.0}"
-export TOP_P
-: "${TOP_K:=1}"
-export TOP_K
-: "${GPU_MEMORY_UTILIZATION:=0.90}"
-export GPU_MEMORY_UTILIZATION
-: "${DTYPE:=float16}"
-export DTYPE
-: "${TRANSFORMERS_DTYPE:=float16}"
-export TRANSFORMERS_DTYPE
+export BATCH_MODE="1"
+export BATCH_CONCURRENCY="358"
+export TEMPERATURE="0.0"
+export TOP_P="1.0"
+export TOP_K="1"
+export GPU_MEMORY_UTILIZATION="0.90"
+export DTYPE="float16"
+export TRANSFORMERS_DTYPE="float16"
 
-# vLLM 吞吐/量化（可选）：默认不启用量化；用户可在运行前 export 覆盖。
-: "${ENABLE_PREFIX_CACHING:=1}"
-export ENABLE_PREFIX_CACHING
-: "${VLLM_QUANTIZATION:=}"
-export VLLM_QUANTIZATION
-: "${VLLM_LOAD_FORMAT:=}"
-export VLLM_LOAD_FORMAT
-: "${VLLM_MAX_NUM_SEQS:=}"
-export VLLM_MAX_NUM_SEQS
-: "${VLLM_MAX_NUM_BATCHED_TOKENS:=}"
-export VLLM_MAX_NUM_BATCHED_TOKENS
-: "${VLLM_COMPILATION_CONFIG:=}"
-export VLLM_COMPILATION_CONFIG
-: "${MAX_MODEL_LEN:=}"
-export MAX_MODEL_LEN
+# vLLM 吞吐/量化（AWQ）
+export ENABLE_PREFIX_CACHING="1"
+export VLLM_QUANTIZATION="awq"
+export VLLM_LOAD_FORMAT="auto"
 
-: "${DEBUG_NET:=0}"
-export DEBUG_NET
+# 可选：不设置表示交给 vLLM 自行决定
+export VLLM_MAX_NUM_SEQS=""
+export VLLM_MAX_NUM_BATCHED_TOKENS=""
+export VLLM_COMPILATION_CONFIG=""
+export MAX_MODEL_LEN=""
+
+export DEBUG_NET="0"
 
 # ======================
 # 2) Python 环境 + 安装依赖
@@ -83,9 +59,9 @@ export DEBUG_NET
 # 使用系统 python，便于在云主机复用预装的 vLLM/torch。
 # 这与 Dockerfile 的行为一致（直接往镜像环境里 pip install）。
 if command -v python3 >/dev/null 2>&1; then
-  PYTHON_BIN="${PYTHON_BIN:-python3}"
+  PYTHON_BIN="python3"
 else
-  PYTHON_BIN="${PYTHON_BIN:-python}"
+  PYTHON_BIN="python"
 fi
 
 say "Using python: $PYTHON_BIN"

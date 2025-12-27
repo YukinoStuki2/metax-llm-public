@@ -21,7 +21,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--repo-id",
         default=os.environ.get("REPO_ID")
-        or "YukinoStuki/Qwen3-4B-Plus-LLM-AWQ-AWQ",
+        or "YukinoStuki/Qwen3-4B-Plus-LLM-AWQ",
         help="ModelScope repo id（也可用环境变量 REPO_ID 覆盖）",
     )
     parser.add_argument(

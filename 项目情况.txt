@@ -132,7 +132,7 @@ Fork 了沐曦模板仓库（metax-demo），并已按要求添加了部署公�
 
 已微调并得到 LoRA/adapter，之后合并（merge）得到完整权重目录（本地测试跑通）。
 
-已将合并后的模型上传到了 ModelScope（仓库：YukinoStuki/Qwen3-4B-Plus-Merged，可见链接在上传日志中显示创建成功）。
+已将合并后的模型上传到了 ModelScope（仓库：YukinoStuki/Qwen3-4B-Plus-LLM-AWQ，可见链接在上传日志中显示创建成功）。
 
 评测机已提交过一次：准确率 0.2035、速度 123.43 tokens/s（不达标，需提升准确率≥0.35 以及速度）。
 
@@ -152,9 +152,9 @@ serve.py：核心推理服务，提供 GET / 和 POST /predict
 
 ModelScope 仓库
 
-合并后的模型已上传到 ModelScope：YukinoStuki/Qwen3-4B-Plus-Merged（master）
+合并后的模型已上传到 ModelScope：YukinoStuki/Qwen3-4B-Plus-LLM-AWQ（master）
 
-download_model.py 在 Docker build 阶段会把这个仓库拉到 /app/model/YukinoStuki/Qwen3-4B-Plus-Merged 或类似目录。
+download_model.py 在 Docker build 阶段会把这个仓库拉到 ./model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ 或类似目录。
 
 4. 评测准确率计算函数（必须对齐）
 
@@ -178,7 +178,7 @@ pred/ref 空则该条记 0
 
 通过eval_local.py用两个docx题目可以对模型就进行云平台测试，run.sh为测试命令
 
-旧模型性能：评测机：accuracy 0.2035，speed 123.43 tokens/s 本地复现（旧代码）：accuracy ~0.31（示例 100题），吞吐约 126 tokens/s
+旧模型性能：评测机：accuracy 0.3651，speed 5124 tokens/s 本地复现（旧代码）：accuracy ~0.86（示例 100题），吞吐约 3965 tokens/s
 
 目前追求完成加分题项目，需要重新微调模型，并上传，测试
 
@@ -191,3 +191,5 @@ Gitee（评测用）：git@gitee.com:yukinostuki/metax-demo.git（master）
 GitHub（镜像/Codex 用）：git@github.com:YukinoStuki2/metax-demo-mirror.git（master）
 
 ModelScope 模型：YukinoStuki/Qwen3-4B-Plus-Merged（已上传）
+
+云平台和评测机均为曦云C500 64GB显存，而本地WSL是4090-laptop，写代码请考虑两端兼容，如果实在不行请首要兼容评测机的C500
