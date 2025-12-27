@@ -140,6 +140,43 @@ python merge_adapter.py \
 python eval_local.py --batch --strip_q_suffix --which bonus --max_n 50
 ```
 
+## AWQ 量化（AutoAWQ，覆盖上传同名模型）
+
+说明：部分环境/架构不支持 Marlin kernel，因此此前 compressed-tensors 路线可能无法运行。这里提供 AutoAWQ 量化脚本，输出目录固定为 `model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ`，可直接用上传脚本覆盖同名仓库。
+
+1) 安装量化依赖（建议单独虚拟环境；不修改线上 serving 的 requirements.txt）：
+
+```bash
+python -m venv .venv-awq
+source .venv-awq/bin/activate
+
+pip install -U pip setuptools wheel
+
+# 先安装 transformers 等轻依赖（避免 autoawq 自动升级 torch 破坏环境）
+pip install -r requirements-quantize-awq.txt
+
+# 再安装 autoawq（不自动拉取/升级 torch）
+pip install --no-deps autoawq==0.2.9
+```
+
+2) 量化并导出到固定目录：
+
+```bash
+python quantize_awq_llmcompressor.py \
+  --model_dir model/YukinoStuki/Qwen3-4B-Plus-LLM \
+  --calib_jsonl calib_512.jsonl \
+  --output_dir model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ
+```
+
+3) 上传并覆盖 ModelScope 上同名仓库：
+
+```bash
+python upload_model.py \
+  --repo-id YukinoStuki/Qwen3-4B-Plus-LLM-AWQ \
+  --model-dir model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ \
+  --commit-message "overwrite awq (autoawq)"
+```
+
 ## 环境说明
 
 ### 软件包版本

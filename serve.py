@@ -13,6 +13,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
 
+# 避免 transformers 在启动时引入 torchvision（在部分环境会产生大量 warning，甚至可能触发版本不匹配错误）。
+os.environ.setdefault("TRANSFORMERS_NO_TORCHVISION", "1")
+
 # ======================
 # 配置区：容器优先
 # ======================
@@ -502,12 +505,32 @@ async def lifespan(app: FastAPI):
                         pass
 
                 # MetaX 驱动栈可能对新版 vLLM 的高级特性较敏感（V1 引擎、编译、chunked prefill）。
-                # 检测到 MetaX 设备时，默认更偏保守设置。
+                # 这里采用“先性能、失败再回退”的策略：
+                # - 默认不强制 eager（这样 cudagraph 仍有机会生效，吞吐更高）
+                # - 默认限制 max_model_len，避免直接按模型 config 的超长上下文（如 262144）分配 KV cache，导致并发极低
+                # - 若初始化失败，再自动回退到更保守设置
                 if _HAS_MX_DEVICE:
-                    if "enforce_eager" in sig.parameters:
+                    vllm_enforce_eager = _env_flag("VLLM_ENFORCE_EAGER", False)
+                    if "enforce_eager" in sig.parameters and vllm_enforce_eager:
                         engine_kwargs["enforce_eager"] = True
+
+                    # 用户可显式设 MAX_MODEL_LEN；否则 MetaX 默认用一个更保守的长度（评测 prompt 通常不需要超长上下文）。
+                    if max_model_len_env is None or str(max_model_len_env).strip() == "":
+                        default_len = os.environ.get("DEFAULT_MAX_MODEL_LEN", "38400")
+                        if "max_model_len" in sig.parameters:
+                            try:
+                                engine_kwargs["max_model_len"] = int(default_len)
+                                print("Using DEFAULT_MAX_MODEL_LEN =", engine_kwargs["max_model_len"])
+                            except Exception:
+                                pass
+
                     if "enable_chunked_prefill" in sig.parameters:
-                        engine_kwargs["enable_chunked_prefill"] = False
+                        # MetaX 上默认禁用 chunked prefill（保守），可通过环境变量显式开启。
+                        engine_kwargs["enable_chunked_prefill"] = _env_flag(
+                            "ENABLE_CHUNKED_PREFILL",
+                            False,
+                        )
+
                     if "compilation_config" in sig.parameters:
                         # 默认不要设置 compilation_config。
                         # 不同 vLLM 构建/插件对该参数接受的类型（dict vs JSON 字符串）可能不一致，
@@ -538,41 +561,77 @@ async def lifespan(app: FastAPI):
             try:
                 app.state.engine = _build_engine()
             except Exception as e:
-                # 若 compilation_config 来自环境变量覆盖，则跨版本尝试自动修正一次类型。
-                if _HAS_MX_DEVICE and _maybe_fix_compilation_config(engine_kwargs, e):
-                    app.state.engine = _build_engine()
+                last_err: Exception = e
+                engine_built = False
 
-                # 若 KV cache 不足以支撑模型配置的最大序列长度，且 vLLM 支持设置 max_model_len，
-                # 则降低长度重试一次。
-                suggested_len = _maybe_parse_estimated_max_len(e)
-                try:
-                    sig = inspect.signature(AsyncEngineArgs.__init__)
-                    can_set_len = ("max_model_len" in sig.parameters)
-                except Exception:
-                    can_set_len = False
-
-                if can_set_len and ("max_model_len" not in engine_kwargs):
-                    retry_len: Optional[int] = None
-                    if suggested_len is not None:
-                        retry_len = int(suggested_len)
-                    else:
-                        # 一些 vLLM 版本会把 KV-cache 详细错误包装成泛化的 EngineCore failure；
-                        # 此时尝试一个保守默认值。
-                        msg = str(e)
-                        if "Engine core initialization failed" in msg or "KV cache" in msg:
-                            try:
-                                retry_len = int(os.environ.get("SAFE_MAX_MODEL_LEN", "38400"))
-                            except Exception:
-                                retry_len = 38400
-
-                    if retry_len is not None:
-                        print("Retry vLLM init with max_model_len =", retry_len)
-                        engine_kwargs["max_model_len"] = int(retry_len)
+                # 1) 若 compilation_config 来自环境变量覆盖，则跨版本尝试自动修正一次类型。
+                if _HAS_MX_DEVICE and _maybe_fix_compilation_config(engine_kwargs, last_err):
+                    try:
                         app.state.engine = _build_engine()
-                    else:
-                        raise
-                else:
-                    raise
+                        engine_built = True
+                    except Exception as e2:
+                        last_err = e2
+
+                # 2) MetaX：如果非 eager 初始化失败，自动回退为 eager（更保守但通常更稳）。
+                # 说明：你日志里 enforce_eager=True 会禁用 cudagraph，吞吐可能下降；
+                # 因此这里优先让性能模式成功，失败再回退。
+                if not engine_built:
+                    try:
+                        sig = inspect.signature(AsyncEngineArgs.__init__)
+                        can_set_eager = ("enforce_eager" in sig.parameters)
+                    except Exception:
+                        can_set_eager = False
+
+                    if _HAS_MX_DEVICE and can_set_eager and ("enforce_eager" not in engine_kwargs):
+                        print("Retry vLLM init with enforce_eager = True")
+                        engine_kwargs["enforce_eager"] = True
+                        # 回退时也保持 chunked prefill 默认关闭（除非用户显式开启）。
+                        if "enable_chunked_prefill" in engine_kwargs:
+                            engine_kwargs["enable_chunked_prefill"] = _env_flag(
+                                "ENABLE_CHUNKED_PREFILL",
+                                False,
+                            )
+                        try:
+                            app.state.engine = _build_engine()
+                            engine_built = True
+                        except Exception as e3:
+                            last_err = e3
+
+                # 3) 若 KV cache 不足以支撑模型配置的最大序列长度，且 vLLM 支持设置 max_model_len，
+                # 则降低长度重试一次。
+                if not engine_built:
+                    suggested_len = _maybe_parse_estimated_max_len(last_err)
+                    try:
+                        sig = inspect.signature(AsyncEngineArgs.__init__)
+                        can_set_len = ("max_model_len" in sig.parameters)
+                    except Exception:
+                        can_set_len = False
+
+                    if can_set_len and ("max_model_len" not in engine_kwargs):
+                        retry_len: Optional[int] = None
+                        if suggested_len is not None:
+                            retry_len = int(suggested_len)
+                        else:
+                            # 一些 vLLM 版本会把 KV-cache 详细错误包装成泛化的 EngineCore failure；
+                            # 此时尝试一个保守默认值。
+                            msg = str(last_err)
+                            if "Engine core initialization failed" in msg or "KV cache" in msg:
+                                try:
+                                    retry_len = int(os.environ.get("SAFE_MAX_MODEL_LEN", "38400"))
+                                except Exception:
+                                    retry_len = 38400
+
+                        if retry_len is not None:
+                            print("Retry vLLM init with max_model_len =", retry_len)
+                            engine_kwargs["max_model_len"] = int(retry_len)
+                            try:
+                                app.state.engine = _build_engine()
+                                engine_built = True
+                            except Exception as e4:
+                                last_err = e4
+
+                if not engine_built:
+                    raise last_err
             app.state.backend = "vllm"
             print("vLLM engine initialized successfully!")
 

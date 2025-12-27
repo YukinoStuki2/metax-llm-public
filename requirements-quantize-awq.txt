@@ -1,0 +1,19 @@
+# 独立于线上 serving 的量化环境依赖（不要加入 requirements.txt）
+# 建议在单独 venv 里安装后运行 quantize_awq_llmcompressor.py
+
+# 注意：不同平台/驱动对 torch 版本有要求，请按你的环境自行选择 torch 安装方式。
+# 这里只列出 AutoAWQ 量化脚本的 Python 依赖。
+
+# 量化建议使用“独立虚拟环境”，不要和本仓库 serving 的 vLLM/torch 混装。
+# 由于 autoawq 会拉取/升级 torch，极易与 vLLM 依赖冲突：
+# - 这里不在 requirements 里直接写 autoawq
+# - 推荐先按你机器/驱动安装 torch（例如 CUDA/MetaX 对应版本），再用 --no-deps 安装 autoawq
+
+# AutoAWQ 对 transformers 版本比较敏感；这里固定到其官方最后测试过的版本。
+transformers==4.51.3
+tokenizers==0.21.4
+
+safetensors
+accelerate
+datasets
+huggingface_hub

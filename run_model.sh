@@ -42,14 +42,21 @@ export TRANSFORMERS_DTYPE="float16"
 
 # vLLM 吞吐/量化（AWQ）
 export ENABLE_PREFIX_CACHING="1"
-export VLLM_QUANTIZATION=""
-export VLLM_LOAD_FORMAT=""
+export VLLM_QUANTIZATION="awq"
+export VLLM_LOAD_FORMAT="auto"
+
+# MetaX 上如果强制 enforce_eager 会禁用 cudagraph，吞吐可能下降。
+# 默认不强制 eager；若遇到平台兼容问题再设为 1。
+export VLLM_ENFORCE_EAGER="0"
 
 # 可选：不设置表示交给 vLLM 自行决定
 export VLLM_MAX_NUM_SEQS=""
 export VLLM_MAX_NUM_BATCHED_TOKENS=""
 export VLLM_COMPILATION_CONFIG=""
-export MAX_MODEL_LEN=""
+
+# Qwen3 系列模型 config 里可能带超长上下文（如 262144），会导致 KV cache 按超长分配，并发很低。
+# 评测题通常不需要这么长，上限过大会拖慢吞吐；这里默认限制到一个更实际的值。
+export MAX_MODEL_LEN="38400"
 
 export DEBUG_NET="0"
 
