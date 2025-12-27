@@ -18,11 +18,12 @@ except Exception:
 
 
 def parse_docx_qa(docx_path: str) -> List[Tuple[str, str]]:
-    """
-    Parse docx where Q/A are presented as:
+    """解析 docx 中的问答对。
+
+    约定 Q/A 的段落格式为：
       问题：...
       答案：...
-    Ignore other headings/paragraphs.
+    其他标题/段落将被忽略。
     """
     doc = Document(docx_path)
     paras = [p.text.strip() for p in doc.paragraphs if p.text and p.text.strip()]
@@ -48,7 +49,7 @@ def parse_docx_qa(docx_path: str) -> List[Tuple[str, str]]:
         ma = a_pat.match(t)
 
         if mq:
-            # New question begins; flush previous pair.
+            # 遇到新问题：先把上一组 Q/A 写入列表。
             flush()
             cur_q = mq.group(1).strip()
             continue
@@ -57,15 +58,15 @@ def parse_docx_qa(docx_path: str) -> List[Tuple[str, str]]:
             cur_a = ma.group(1).strip()
             continue
 
-        # Continuation lines:
-        # Some answers are long and may spill into next paragraph without "答案："
+        # 续行处理：
+        # 有些答案较长，可能会在没有再次出现“答案：”的情况下延续到下一段。
         if cur_a is not None and cur_q is not None:
             cur_a += "\n" + t
-        # Some questions might also be split (rare)
+        # 少数情况下问题也可能被拆到多段（较少见）
         elif cur_q is not None and cur_a is None:
             cur_q += "\n" + t
         else:
-            # unrelated heading/code etc
+            # 无关段落（标题/代码块等），忽略
             continue
 
     flush()
@@ -79,31 +80,31 @@ def rougeL_f1(pred: str, ref: str, scorer: rouge_scorer.RougeScorer) -> float:
     if not pred_tokens.strip() or not ref_tokens.strip():
         return 0.0
 
-    # IMPORTANT: match your provided function: scorer.score(ref_tokens, pred_tokens)
+    # 重要：保持与评测/提供的实现一致：scorer.score(ref_tokens, pred_tokens)
     score = scorer.score(ref_tokens, pred_tokens)
     return float(score["rougeL"].fmeasure)
 
 
 def strip_question_suffix(answer: str, question: str) -> str:
-    """
-    Heuristic: if the answer ends with the question (or a long suffix equal to question),
-    remove that duplicated suffix to improve Rouge and save tokens.
+    """启发式清理：若答案末尾重复附带了题目文本，则移除该重复后缀。
+
+    目的：提升 Rouge，并减少无意义 token。
     """
     a = (answer or "").strip()
     q = (question or "").strip()
     if not a or not q:
         return a
 
-    # direct suffix match
+    # 直接后缀匹配
     if a.endswith(q):
         a = a[: -len(q)].rstrip()
 
-    # also handle: "...  矩阵乘法中使用分块技术的优势是什么？"
-    # where suffix is q without spaces
+    # 也处理类似：“...  矩阵乘法中使用分块技术的优势是什么？”
+    # 即后缀等于去掉空白后的题目
     a_nospace = re.sub(r"\s+", "", a)
     q_nospace = re.sub(r"\s+", "", q)
     if a_nospace.endswith(q_nospace):
-        # remove last occurrence by finding the last index in original string roughly
+        # 通过在原字符串中定位最后一次出现的位置来大致删除
         idx = a.rfind(q)
         if idx != -1 and idx > len(a) * 0.5:
             a = a[:idx].rstrip()
@@ -118,7 +119,7 @@ def load_tokenizer(model_dir_or_id: Optional[str]):
         print("[WARN] transformers not available; token counting will be skipped.")
         return None
     try:
-        # fix_mistral_regex only exists for some tokenizers; pass via kwargs safely
+        # fix_mistral_regex 仅在少数 tokenizer 存在；这里用 kwargs 方式安全传参
         tok = AutoTokenizer.from_pretrained(
             model_dir_or_id,
             trust_remote_code=True,
@@ -148,7 +149,7 @@ def call_predict(endpoint: str, prompt: str, timeout: int = 300) -> str:
     data = r.json()
     if isinstance(data, dict) and "response" in data:
         return str(data["response"])
-    # fallback
+    # 兜底：把整个响应序列化为字符串
     return json.dumps(data, ensure_ascii=False)
 
 
@@ -161,16 +162,16 @@ def call_predict_batch(endpoint: str, prompts: List[str], timeout: int = 300) ->
         resp = data["response"]
         if isinstance(resp, list):
             return ["" if x is None else str(x) for x in resp]
-        # Server might still return a single string; replicate to match length
+        # 服务端也可能仍返回单个字符串：复制到与 prompts 同长度
         if isinstance(resp, str):
             return [resp] * len(prompts)
         return [str(resp)] * len(prompts)
 
-    # If server returns a raw list (non-standard), accept it.
+    # 若服务端直接返回原始 list（非标准协议），也接受。
     if isinstance(data, list):
         return ["" if x is None else str(x) for x in data]
 
-    # fallback: treat as one giant string
+    # 兜底：把整体当作一个大字符串
     return [json.dumps(data, ensure_ascii=False)] * len(prompts)
 
 
@@ -190,7 +191,7 @@ def main():
     ap.add_argument("--save_jsonl", default="eval_details.jsonl")
     args = ap.parse_args()
 
-    # Health check
+    # 健康检查
     try:
         hr = requests.get(args.health, timeout=10)
         print(f"[INFO] health status={hr.status_code}, body={hr.text[:200]}")

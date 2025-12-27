@@ -40,7 +40,7 @@ def summarize_dir(model_dir: str) -> Tuple[int, int]:
     total_files = 0
     total_bytes = 0
     try:
-        from tqdm import tqdm  # optional for nicer progress
+        from tqdm import tqdm  # 可选：用于更友好的进度条
 
         for root, _dirs, files in tqdm(os.walk(model_dir), desc="[upload_model] Scanning", unit="dir"):
             for f in files:
@@ -50,7 +50,7 @@ def summarize_dir(model_dir: str) -> Tuple[int, int]:
                 except OSError:
                     pass
     except Exception:
-        # Fallback: plain walk without progress bar if tqdm unavailable
+        # 兜底：若 tqdm 不可用，则不带进度条地遍历目录
         for root, _dirs, files in os.walk(model_dir):
             for f in files:
                 total_files += 1

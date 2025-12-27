@@ -59,22 +59,22 @@ def _normalize_text(s: str) -> str:
 
 
 def is_code_question(user_prompt: str) -> bool:
-    """Heuristic: determine whether the question likely needs code/implementation.
+    """启发式判断：题目是否更可能需要代码/实现类输出。
 
-    plus 题里很多是 Triton/TileLang/CUDA/Kernel 相关，参考答案会给伪代码或代码片段。
-    对这种题把 max_new_tokens 提高能显著减少截断。
+    plus 题里很多是 Triton/TileLang/CUDA/Kernel 相关，参考答案常给伪代码或代码片段。
+    对这种题把 max_new_tokens 适当提高能显著减少截断。
     """
 
     p = _normalize_text(user_prompt)
     if not p:
         return False
 
-    # User override
+    # 用户可通过环境变量追加关键词
     extra = os.environ.get("CODE_QUESTION_KEYWORDS", "")
     extra_words = [w.strip().lower() for w in extra.split(",") if w.strip()]
 
     keywords = [
-        # Chinese
+        # 中文关键词
         "代码",
         "伪代码",
         "实现",
@@ -95,7 +95,7 @@ def is_code_question(user_prompt: str) -> bool:
         "depthwise",
         "dilated",
         "空洞卷积",
-        # Common code tokens
+        # 常见代码特征词
         "@triton",
         "tl.",
         "__global__",
@@ -114,6 +114,13 @@ def is_code_question(user_prompt: str) -> bool:
 def pick_max_new_tokens(user_prompt: str) -> int:
     return MAX_NEW_TOKENS_CODE if is_code_question(user_prompt) else MAX_NEW_TOKENS
 
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    v = os.environ.get(name)
+    if v is None:
+        return default
+    return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
+
 # vLLM 开关：auto/true/false
 USE_VLLM = os.environ.get("USE_VLLM", "true").lower()
 
@@ -127,46 +134,46 @@ DEBUG_NET = os.environ.get("DEBUG_NET", "0") == "1"
 # vLLM 在部分环境可用 ModelScope（保留）
 os.environ["VLLM_USE_MODELSCOPE"] = "True"
 
-# Cross-platform safety:
-# - On MetaX cloud (C500), vllm_metax platform plugin may exist and should run.
-# - On non-MetaX machines (e.g. WSL + RTX4090), if vllm_metax is accidentally
-#   installed, it can be auto-activated and break CUDA execution.
-# If user explicitly sets VLLM_PLUGINS, respect it.
+# 跨平台安全处理：
+# - 在 MetaX 云（如 C500）上，可能存在 vllm_metax 平台插件且需要正常工作。
+# - 在非 MetaX 机器（如 WSL + RTX4090）上，如果误装 vllm_metax，可能被自动激活，
+#   反而导致 CUDA 执行异常。
+# 若用户显式设置了 VLLM_PLUGINS，则尊重用户设置。
 _HAS_MX_DEVICE = any(os.path.exists(p) for p in ("/dev/mxcd", "/dev/mxc0", "/dev/mxc"))
 if "VLLM_PLUGINS" not in os.environ and not _HAS_MX_DEVICE:
-    # Empty string => no plugins loaded (built-in CUDA detection still works).
+    # 空字符串 => 不加载任何插件（vLLM 内置的 CUDA 探测仍可用）。
     os.environ["VLLM_PLUGINS"] = ""
 
-# MetaX default: keep V1 engine enabled unless explicitly overridden.
-# Some MetaX platform plugin builds only support (or strongly prefer) the V1
-# engine path; setting VLLM_USE_V1=0 can lead to a hard startup error.
+# MetaX 默认：除非用户显式覆盖，否则保持启用 V1 引擎。
+# 一些 MetaX 平台插件构建仅支持（或强依赖）V1 引擎路径；设置 VLLM_USE_V1=0
+# 可能导致启动阶段直接报错。
 if _HAS_MX_DEVICE and "VLLM_USE_V1" not in os.environ:
     os.environ["VLLM_USE_V1"] = "1"
 
-# Prefer a safer default on MetaX unless user overrides.
+# MetaX 上优先使用更保守的默认值（除非用户覆盖）。
 if _HAS_MX_DEVICE and "GPU_MEMORY_UTILIZATION" not in os.environ:
     os.environ["GPU_MEMORY_UTILIZATION"] = "0.60"
 
 
 def _unset_env_if_blank(key: str) -> None:
-    """Unset env var if it exists but is blank.
+    """当环境变量存在但值为空时，移除它。
 
-    Some cloud runtimes accidentally set CUDA_VISIBLE_DEVICES="" which can
-    trigger vLLM/torch errors like: "Device string must not be empty".
+    一些云运行时会误把 CUDA_VISIBLE_DEVICES 设置为空字符串，导致 vLLM/torch
+    报错（例如："Device string must not be empty"）。
     """
     if key in os.environ and os.environ.get(key, "").strip() == "":
         del os.environ[key]
 
 
-# Defensive: avoid empty device strings breaking vLLM.
+# 防御性处理：避免空设备字符串导致 vLLM 异常。
 _unset_env_if_blank("CUDA_VISIBLE_DEVICES")
 _unset_env_if_blank("NVIDIA_VISIBLE_DEVICES")
 _unset_env_if_blank("VLLM_DEVICE")
 
 
 def _has_c_compiler() -> bool:
-    # Triton (used by vLLM) may compile small C/CUDA helper modules at runtime.
-    # If no compiler exists, vLLM can fail early with "Failed to find C compiler".
+    # Triton（vLLM 依赖）可能在运行时编译少量 C/CUDA 辅助模块。
+    # 若系统无编译器，vLLM 可能会在初始化阶段报错："Failed to find C compiler"。
     return any(shutil.which(x) for x in ("cc", "gcc", "clang"))
 
 def strip_think(text: str) -> str:
@@ -175,11 +182,10 @@ def strip_think(text: str) -> str:
 
 
 def _maybe_parse_estimated_max_len(err: Exception) -> Optional[int]:
-    """Parse vLLM KV-cache error message for suggested max model length.
+    """从 vLLM 的 KV-cache 相关报错中解析推荐的 max model length。
 
-    Note: vLLM may raise a generic RuntimeError in the parent process while the
-    worker process logs a detailed ValueError. We therefore scan the exception
-    chain (cause/context) as well.
+    注意：vLLM 有时会在父进程抛出较泛化的 RuntimeError，而子进程日志里才有更详细的
+    ValueError；因此这里会同时扫描异常链（cause/context）。
     """
 
     def _iter_exc_chain(e: BaseException):
@@ -188,7 +194,7 @@ def _maybe_parse_estimated_max_len(err: Exception) -> Optional[int]:
         while cur is not None and id(cur) not in seen:
             seen.add(id(cur))
             yield cur
-            # Prefer explicit cause; otherwise fall back to context.
+            # 优先取显式 cause，否则退回 context。
             cur = cur.__cause__ or cur.__context__
 
     for ex in _iter_exc_chain(err):
@@ -204,14 +210,14 @@ def _maybe_parse_estimated_max_len(err: Exception) -> Optional[int]:
 
 
 def _maybe_fix_compilation_config(engine_kwargs: dict, err: Exception) -> bool:
-    """Try to fix compilation_config type across vLLM versions.
+    """跨 vLLM 版本兼容地修复 compilation_config 的类型。
 
-    Some vLLM builds expect compilation_config as:
-    - a dict / CompilationConfig dataclass
-    - OR a JSON string that can be parsed into CompilationConfig
+    不同 vLLM 构建对 compilation_config 的期望可能是：
+    - dict / CompilationConfig 数据类
+    - 或者可被解析为 CompilationConfig 的 JSON 字符串
 
-    We detect common Pydantic error patterns and convert between dict <-> JSON string.
-    Returns True if engine_kwargs was modified.
+    这里根据常见的 Pydantic 报错模式，在 dict <-> JSON 字符串之间做一次转换。
+    若 engine_kwargs 被修改则返回 True。
     """
 
     if "compilation_config" not in engine_kwargs:
@@ -228,7 +234,7 @@ def _maybe_fix_compilation_config(engine_kwargs: dict, err: Exception) -> bool:
 
     val = engine_kwargs.get("compilation_config")
 
-    # Case A: expects dict/dataclass, but got a JSON string.
+    # 情况 A：期望 dict/数据类，但实际拿到的是 JSON 字符串。
     if isinstance(val, str) and (
         "Input should be a dictionary" in msg
         or "dataclass_type" in msg
@@ -239,7 +245,7 @@ def _maybe_fix_compilation_config(engine_kwargs: dict, err: Exception) -> bool:
         except Exception:
             return False
 
-    # Case B: expects JSON string, but got dict.
+    # 情况 B：期望 JSON 字符串，但实际拿到的是 dict。
     if isinstance(val, dict) and (
         "Invalid JSON" in msg
         or "json_invalid" in msg
@@ -248,7 +254,7 @@ def _maybe_fix_compilation_config(engine_kwargs: dict, err: Exception) -> bool:
         engine_kwargs["compilation_config"] = json.dumps(val)
         return True
 
-    # Case C: got a Python dict string like "{'level': 0}"; convert to valid JSON string.
+    # 情况 C：拿到的是 Python dict 字符串（如 "{'level': 0}"）；转换为合法 JSON 字符串。
     if isinstance(val, str) and ("Invalid JSON" in msg or "json_invalid" in msg):
         try:
             parsed = json.loads(val)
@@ -287,16 +293,15 @@ def _coerce_log_level(level_name: str, default: int = logging.WARNING) -> int:
 
 
 def _set_logger_level_prefix(prefix: str, level: int) -> None:
-    """Set logging level for a logger prefix (e.g. 'vllm').
+    """为指定 logger 前缀设置日志等级（例如 'vllm'）。
 
-    vLLM can be extremely chatty in batch mode (e.g., per-request INFO logs like
-    'Added request ...'). These logs are not useful for evaluation and add
-    overhead. We therefore default to WARNING for vLLM loggers.
+    vLLM 在 batch 模式下可能非常“话痨”（例如每个请求都会打印 INFO：'Added request ...'）。
+    这些日志对评测无收益，反而增加开销，因此默认把 vLLM 相关日志降到 WARNING。
     """
 
     try:
         logging.getLogger(prefix).setLevel(level)
-        # Update existing child loggers that may already be created.
+        # 同步更新可能已创建的子 logger。
         for name in list(getattr(logging.root.manager, "loggerDict", {}).keys()):
             if name == prefix or name.startswith(prefix + "."):
                 logging.getLogger(name).setLevel(level)
@@ -333,12 +338,12 @@ def should_use_vllm() -> bool:
     if not _vllm_ok:
         return False
 
-    # If we know vLLM will fail due to missing toolchain, prefer transformers
-    # unless user explicitly forces vLLM.
+    # 若已知当前环境缺少工具链会导致 vLLM 失败，则优先 transformers；
+    # 除非用户显式强制使用 vLLM。
     if not FORCE_VLLM and not _has_c_compiler():
         return False
 
-    # Prefer vLLM only when CUDA is actually available.
+    # 只有在 CUDA 实际可用时才倾向使用 vLLM。
     cuda_ok = False
     try:
         import torch  # type: ignore
@@ -348,7 +353,7 @@ def should_use_vllm() -> bool:
         cuda_ok = False
 
     if USE_VLLM == "true":
-        # Force vLLM attempt; init errors will fall back to transformers.
+        # 强制尝试 vLLM；初始化失败则回退到 transformers。
         return True
     if USE_VLLM == "false":
         return False
@@ -389,8 +394,8 @@ def format_as_chat(tokenizer: Any, user_prompt: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """启动时加载模型（评测 health check 阶段也会触发）。"""
-    # Local-friendly fallback: if user didn't set MODEL_DIR and the default
-    # ./model/$MODEL_ID doesn't exist, but ./merged exists, use ./merged.
+    # 本地友好兜底：若用户未设置 MODEL_DIR，且默认 ./model/$MODEL_ID 不存在，
+    # 但 ./merged 存在，则使用 ./merged。
     if "MODEL_DIR" not in os.environ:
         default_dir = os.path.abspath(MODEL_DIR)
         merged_dir = os.path.abspath("./merged")
@@ -427,7 +432,7 @@ async def lifespan(app: FastAPI):
     if should_use_vllm():
         print("Initializing vLLM engine...")
         try:
-            # Helpful diagnostics for cloud hosts
+            # 云环境诊断信息（便于定位驱动/可见卡等问题）
             try:
                 import torch as _torch  # type: ignore
 
@@ -453,27 +458,49 @@ async def lifespan(app: FastAPI):
                 disable_log_stats=True,
             )
 
-            # Optional override for max model length (helps avoid KV-cache OOM on smaller GPUs).
+            # 可选：覆盖最大序列长度（在小显存 GPU 上有助于避免 KV-cache OOM）。
             max_model_len_env = os.environ.get("MAX_MODEL_LEN")
 
-            # Some vLLM versions/platform plugins do NOT accept `device`.
+            # 部分 vLLM 版本/平台插件不接受 `device` 参数。
             try:
                 sig = inspect.signature(AsyncEngineArgs.__init__)
 
-                # MetaX driver stacks can be sensitive to advanced features in
-                # newer vLLM (V1 engine, compilation, chunked prefill). Prefer
-                # safer settings by default when we detect MetaX devices.
+                # 吞吐相关开关（仅在当前 vLLM 构建支持时才设置）
+                # 前缀缓存通常是安全的，且能显著加速“共享前缀”的大 batch（如 system prompt）。
+                if "enable_prefix_caching" in sig.parameters:
+                    engine_kwargs["enable_prefix_caching"] = _env_flag("ENABLE_PREFIX_CACHING", True)
+                if "disable_log_requests" in sig.parameters:
+                    engine_kwargs["disable_log_requests"] = True
+
+                # 可选：容量调参（默认不设置；允许通过环境变量覆盖）
+                max_num_seqs_env = os.environ.get("VLLM_MAX_NUM_SEQS")
+                if max_num_seqs_env and "max_num_seqs" in sig.parameters:
+                    try:
+                        engine_kwargs["max_num_seqs"] = int(max_num_seqs_env)
+                        print("Using VLLM_MAX_NUM_SEQS =", engine_kwargs["max_num_seqs"])
+                    except Exception:
+                        pass
+
+                max_batched_tokens_env = os.environ.get("VLLM_MAX_NUM_BATCHED_TOKENS")
+                if max_batched_tokens_env and "max_num_batched_tokens" in sig.parameters:
+                    try:
+                        engine_kwargs["max_num_batched_tokens"] = int(max_batched_tokens_env)
+                        print("Using VLLM_MAX_NUM_BATCHED_TOKENS =", engine_kwargs["max_num_batched_tokens"])
+                    except Exception:
+                        pass
+
+                # MetaX 驱动栈可能对新版 vLLM 的高级特性较敏感（V1 引擎、编译、chunked prefill）。
+                # 检测到 MetaX 设备时，默认更偏保守设置。
                 if _HAS_MX_DEVICE:
                     if "enforce_eager" in sig.parameters:
                         engine_kwargs["enforce_eager"] = True
                     if "enable_chunked_prefill" in sig.parameters:
                         engine_kwargs["enable_chunked_prefill"] = False
                     if "compilation_config" in sig.parameters:
-                        # Do NOT set compilation_config by default.
-                        # Different vLLM builds/plugins disagree on the accepted type
-                        # (dict vs JSON string), and incorrect coercion can break
-                        # startup. If users need to override, provide a JSON string
-                        # via VLLM_COMPILATION_CONFIG.
+                        # 默认不要设置 compilation_config。
+                        # 不同 vLLM 构建/插件对该参数接受的类型（dict vs JSON 字符串）可能不一致，
+                        # 错误的类型转换会导致启动失败。若用户确实需要覆盖，请通过
+                        # VLLM_COMPILATION_CONFIG 提供 JSON 字符串。
                         cfg = os.environ.get("VLLM_COMPILATION_CONFIG")
                         if cfg:
                             engine_kwargs["compilation_config"] = cfg
@@ -499,13 +526,12 @@ async def lifespan(app: FastAPI):
             try:
                 app.state.engine = _build_engine()
             except Exception as e:
-                # If compilation_config is present (from env override), try to
-                # auto-fix its type once across vLLM versions.
+                # 若 compilation_config 来自环境变量覆盖，则跨版本尝试自动修正一次类型。
                 if _HAS_MX_DEVICE and _maybe_fix_compilation_config(engine_kwargs, e):
                     app.state.engine = _build_engine()
 
-                # If KV cache isn't enough for the model's configured max seq len,
-                # retry once with a lowered max_model_len when supported.
+                # 若 KV cache 不足以支撑模型配置的最大序列长度，且 vLLM 支持设置 max_model_len，
+                # 则降低长度重试一次。
                 suggested_len = _maybe_parse_estimated_max_len(e)
                 try:
                     sig = inspect.signature(AsyncEngineArgs.__init__)
@@ -518,8 +544,8 @@ async def lifespan(app: FastAPI):
                     if suggested_len is not None:
                         retry_len = int(suggested_len)
                     else:
-                        # Some vLLM versions wrap the detailed KV-cache error in a
-                        # generic EngineCore failure; try a conservative default.
+                        # 一些 vLLM 版本会把 KV-cache 详细错误包装成泛化的 EngineCore failure；
+                        # 此时尝试一个保守默认值。
                         msg = str(e)
                         if "Engine core initialization failed" in msg or "KV cache" in msg:
                             try:
@@ -642,17 +668,26 @@ async def predict(req: PredictionRequest):
     if backend == "vllm":
         engine = app.state.engine
 
+        sampling_params_cache: dict[int, SamplingParams] = {}
+
+        def get_sampling_params(max_tokens: int) -> SamplingParams:
+            mt = int(max_tokens)
+            sp = sampling_params_cache.get(mt)
+            if sp is None:
+                sp = SamplingParams(
+                    temperature=0.0,
+                    top_p=1.0,
+                    top_k=TOP_K,
+                    max_tokens=mt,
+                    frequency_penalty=0.0,
+                )
+                sampling_params_cache[mt] = sp
+            return sp
+
         async def run_one(text_prompt: str, max_tokens: int) -> str:
             # vLLM 的 request_id 需要唯一；batch 并发下用 uuid 避免竞争条件
             rid = uuid.uuid4().hex
-            sampling_params = SamplingParams(
-                temperature=0.0,
-                top_p=1.0,
-                top_k=TOP_K,
-                max_tokens=int(max_tokens),
-                frequency_penalty=0.0,
-            )
-            results = engine.generate(text_prompt, sampling_params, rid)
+            results = engine.generate(text_prompt, get_sampling_params(max_tokens), rid)
             final_output = None
             async for request_output in results:
                 final_output = request_output

@@ -18,12 +18,11 @@ def ensure_clean_dir(path: str) -> None:
 
 
 def resolve_adapter_config(adapter_dir: str) -> None:
-    """Ensure adapter_config.json exists for PEFT.
+    """确保 PEFT 所需的 adapter_config.json 存在。
 
-    If the adapter repo only provides adapter_model.safetensors, user must provide
-    config via env:
-      - ADAPTER_CONFIG_JSON: raw JSON string
-      - ADAPTER_CONFIG_PATH: path to a json file
+    如果适配器仓库只提供 adapter_model.safetensors，则需要用户通过环境变量提供配置：
+      - ADAPTER_CONFIG_JSON：原始 JSON 字符串
+      - ADAPTER_CONFIG_PATH：json 文件路径
     """
 
     cfg_path = os.path.join(adapter_dir, "adapter_config.json")
@@ -56,7 +55,7 @@ def resolve_adapter_config(adapter_dir: str) -> None:
 
 def clone_adapter_repo(repo_url: str, dest_dir: str, ref: Optional[str]) -> None:
     ensure_clean_dir(dest_dir)
-    # For docker build, prefer shallow clone; ref can be branch/tag/commit.
+    # Docker build 场景优先浅克隆；ref 可以是 branch/tag/commit。
     run(["git", "clone", "--depth", "1", repo_url, dest_dir])
     if ref:
         run(["git", "fetch", "--depth", "1", "origin", ref], cwd=dest_dir)
@@ -64,7 +63,7 @@ def clone_adapter_repo(repo_url: str, dest_dir: str, ref: Optional[str]) -> None
 
 
 def find_adapter_weights(adapter_dir: str) -> str:
-    # Common PEFT filenames
+    # 常见 PEFT 权重文件名
     candidates = [
         os.path.join(adapter_dir, "adapter_model.safetensors"),
         os.path.join(adapter_dir, "adapter_model.bin"),
@@ -115,7 +114,7 @@ def parse_args() -> argparse.Namespace:
         description="Download base model from ModelScope, clone adapter repo, and merge adapter into a full merged model directory."
     )
 
-    # Use current working directory by default so running locally/WSL doesn't require /app write permissions.
+    # 默认使用当前工作目录，便于在本地/WSL 运行时不依赖 /app 写权限。
     cwd = os.getcwd()
     default_cache_dir = os.path.join(cwd, "model")
     default_work_dir = os.path.join(cwd, "merge_work")
@@ -162,7 +161,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    # Import lazily to keep error messages clean.
+    # 延迟导入：让缺依赖时报错信息更干净。
     from modelscope import snapshot_download
 
     print("[merge_adapter] Downloading base model from ModelScope...")
@@ -177,7 +176,7 @@ def main() -> int:
     adapter_weights = find_adapter_weights(adapter_dir)
     print("[merge_adapter] Adapter weights:", adapter_weights)
 
-    # If the adapter weights are tracked via Git LFS, ensure the real file is downloaded.
+    # 若适配器权重由 Git LFS 跟踪，则确保已拉取到真实大文件。
     materialize_lfs_file(adapter_weights, adapter_dir)
 
     print("[merge_adapter] Resolving adapter config...")
@@ -190,7 +189,7 @@ def main() -> int:
 
     tokenizer = AutoTokenizer.from_pretrained(base_dir, trust_remote_code=True, use_fast=False)
 
-    # Prefer fp16 to reduce memory; fall back to fp32 if CPU fp16 load fails.
+    # 优先 fp16 降内存；若 CPU 上 fp16 加载失败则回退到 fp32。
     try:
         base_model = AutoModelForCausalLM.from_pretrained(
             base_dir,

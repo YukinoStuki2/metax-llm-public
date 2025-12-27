@@ -26,7 +26,7 @@ ENV USE_VLLM=true
 ENV MAX_NEW_TOKENS=32
 ENV MAX_NEW_TOKENS_CODE=192
 
-# serve.py runtime knobs (keep defaults explicit)
+# serve.py 运行时参数（显式写出默认值，避免环境不一致）
 ENV BATCH_MODE=1 \
         BATCH_CONCURRENCY=320 \
         TEMPERATURE=0.0 \
@@ -37,7 +37,7 @@ ENV BATCH_MODE=1 \
         TRANSFORMERS_DTYPE=float16 \
         DEBUG_NET=0
 
-# download_model.py (optional; empty means anonymous download)
+# download_model.py 的下载 token（可选；为空表示匿名下载）
 ENV MODELSCOPE_API_TOKEN=
 
 EXPOSE 8000

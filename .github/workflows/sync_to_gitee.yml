@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           set -eux
-          # Whitelist: only keep these top-level files; remove everything else (except .git itself).
+          # 白名单：仅保留这些顶层文件；其余全部删除（.git 本身除外）。
           keep=(.git .gitignore .dockerignore Dockerfile README.md download_model.py requirements.txt serve.py)
 
           shopt -s dotglob
@@ -40,11 +40,11 @@ jobs:
             fi
           done
 
-          # Stage deletions so push -f will remove extras on Gitee.
+          # 将删除操作加入暂存区，以便 push -f 时同步移除 Gitee 上的多余文件。
           git add -A
 
-          # IMPORTANT: git push only pushes commits, not the index/working tree.
-          # Create a sync-only commit on the runner so Gitee receives the pruned tree.
+          # 重要：git push 只推送提交，不会推送暂存区/工作区。
+          # 因此在 runner 上创建一次仅用于同步的提交，让 Gitee 接收到裁剪后的文件树。
           if ! git diff --cached --quiet; then
             git -c user.name='gitee-sync-bot' -c user.email='gitee-sync-bot@users.noreply.github.com' \
               commit -m 'chore: sync whitelisted files to gitee'
