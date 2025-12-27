@@ -28,13 +28,20 @@ ENV MAX_NEW_TOKENS_CODE=192
 
 # serve.py 运行时参数（显式写出默认值，避免环境不一致）
 ENV BATCH_MODE=1 \
-        BATCH_CONCURRENCY=320 \
+        BATCH_CONCURRENCY=358 \
         TEMPERATURE=0.0 \
         TOP_P=1.0 \
         TOP_K=1 \
         GPU_MEMORY_UTILIZATION=0.90 \
         DTYPE=float16 \
         TRANSFORMERS_DTYPE=float16 \
+        ENABLE_PREFIX_CACHING=1 \
+        VLLM_QUANTIZATION= \
+        VLLM_LOAD_FORMAT= \
+        VLLM_MAX_NUM_SEQS= \
+        VLLM_MAX_NUM_BATCHED_TOKENS= \
+        VLLM_COMPILATION_CONFIG= \
+        MAX_MODEL_LEN= \
         DEBUG_NET=0
 
 # download_model.py 的下载 token（可选；为空表示匿名下载）

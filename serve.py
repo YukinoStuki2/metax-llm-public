@@ -465,6 +465,18 @@ async def lifespan(app: FastAPI):
             try:
                 sig = inspect.signature(AsyncEngineArgs.__init__)
 
+                # 可选：量化/加载格式透传（仅在当前 vLLM 构建支持时设置）
+                # 例如：VLLM_QUANTIZATION=awq, VLLM_LOAD_FORMAT=awq
+                vllm_quant = (os.environ.get("VLLM_QUANTIZATION") or "").strip()
+                if vllm_quant and "quantization" in sig.parameters:
+                    engine_kwargs["quantization"] = vllm_quant
+                    print("Using VLLM_QUANTIZATION =", vllm_quant)
+
+                vllm_load_format = (os.environ.get("VLLM_LOAD_FORMAT") or "").strip()
+                if vllm_load_format and "load_format" in sig.parameters:
+                    engine_kwargs["load_format"] = vllm_load_format
+                    print("Using VLLM_LOAD_FORMAT =", vllm_load_format)
+
                 # 吞吐相关开关（仅在当前 vLLM 构建支持时才设置）
                 # 前缀缓存通常是安全的，且能显著加速“共享前缀”的大 batch（如 system prompt）。
                 if "enable_prefix_caching" in sig.parameters:
