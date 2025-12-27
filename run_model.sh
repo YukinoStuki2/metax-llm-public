@@ -32,11 +32,11 @@ export MAX_NEW_TOKENS_CODE="192"
 
 # serve.py 运行时参数（与 Dockerfile 保持一致）
 export BATCH_MODE="1"
-export BATCH_CONCURRENCY="358"
+export BATCH_CONCURRENCY="512"
 export TEMPERATURE="0.0"
 export TOP_P="1.0"
 export TOP_K="1"
-export GPU_MEMORY_UTILIZATION="0.90"
+export GPU_MEMORY_UTILIZATION="0.97"
 export DTYPE="float16"
 export TRANSFORMERS_DTYPE="float16"
 
@@ -56,7 +56,7 @@ export VLLM_COMPILATION_CONFIG=""
 
 # Qwen3 系列模型 config 里可能带超长上下文（如 262144），会导致 KV cache 按超长分配，并发很低。
 # 评测题通常不需要这么长，上限过大会拖慢吞吐；这里默认限制到一个更实际的值。
-export MAX_MODEL_LEN="38400"
+export MAX_MODEL_LEN="8192"
 
 export DEBUG_NET="0"
 

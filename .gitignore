@@ -39,11 +39,6 @@ Thumbs.db
 # Local artifacts
 eval_details.jsonl
 
-# 本地校准/数据（不随仓库提交）
-data.jsonl
-calib_*.jsonl
-calib_*.txt
-
 # Model (local, large)
 model/
 models/
@@ -52,4 +47,3 @@ merge_work/
 *.safetensors
 *.bin
 
-qwen3_4b_finetune_qa_train_v2_speed_rougel.jsonl
