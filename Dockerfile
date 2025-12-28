@@ -10,7 +10,7 @@ COPY download_model.py .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 直接从 ModelScope 下载已融合的模型（线上运行环境不再执行本地融合）
-ENV MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM-AWQ
+ENV MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM
 ENV MODEL_REVISION=master
 
 RUN python download_model.py \
@@ -36,7 +36,7 @@ ENV BATCH_MODE=1 \
         DTYPE=float16 \
         TRANSFORMERS_DTYPE=float16 \
         ENABLE_PREFIX_CACHING=1 \
-        VLLM_QUANTIZATION=awq \
+        VLLM_QUANTIZATION= \
         VLLM_LOAD_FORMAT=auto \
         VLLM_MAX_NUM_SEQS= \
         VLLM_MAX_NUM_BATCHED_TOKENS= \

@@ -16,7 +16,7 @@ say() { echo "[run_model] $*"; }
 # ======================
 export OMP_NUM_THREADS="4"
 
-export MODEL_ID="YukinoStuki/Qwen3-4B-Plus-LLM-AWQ"
+export MODEL_ID="YukinoStuki/Qwen3-4B-Plus-LLM"
 export MODEL_REVISION="master"
 
 # 模型下载 token（可选）：此脚本不读取本机环境变量，避免不同机器环境不一致。
@@ -42,7 +42,7 @@ export TRANSFORMERS_DTYPE="float16"
 
 # vLLM 吞吐/量化（AWQ）
 export ENABLE_PREFIX_CACHING="1"
-export VLLM_QUANTIZATION="awq"
+export VLLM_QUANTIZATION=""
 export VLLM_LOAD_FORMAT="auto"
 
 # MetaX 上如果强制 enforce_eager 会禁用 cudagraph，吞吐可能下降。
