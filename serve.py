@@ -411,6 +411,34 @@ def build_prompt(user_prompt: str) -> str:
 def format_as_chat(tokenizer: Any, user_prompt: str) -> str:
     """用 Qwen 系列的 chat template 构造最终 prompt（提升准确率/一致性）。"""
     p = (user_prompt or "").strip()
+
+    # batch 模式下，1024+ 样本的 apply_chat_template(Jinja) CPU 开销可能很可观。
+    # 对于 Qwen3/2.x 常见的「system + user + assistant 开头」结构，我们做一个等价的
+    # 快路径：直接字符串拼接，显著减少 Python/Jinja 调度成本。
+    # 若判断不成立则回退到 tokenizer.apply_chat_template，保证兼容性。
+    def _supports_im_start_template(tok: Any) -> bool:
+        try:
+            tpl = getattr(tok, "chat_template", None)
+            return isinstance(tpl, str) and ("<|im_start|>" in tpl) and ("assistant" in tpl)
+        except Exception:
+            return False
+
+    fast_chat = _env_flag("FAST_CHAT_TEMPLATE", default=is_batch_mode())
+    if fast_chat and tokenizer is not None and _supports_im_start_template(tokenizer):
+        # 与仓库内 Qwen3 chat_template.jinja 的常见路径等价（无 tools）。
+        # system：'<|im_start|>system\n' + content + '<|im_end|>\n'
+        # user  ：'<|im_start|>user\n' + content + '<|im_end|>\n'
+        # gen   ：'<|im_start|>assistant\n'
+        return (
+            "<|im_start|>system\n"
+            + SYSTEM_PROMPT
+            + "<|im_end|>\n"
+            + "<|im_start|>user\n"
+            + p
+            + "<|im_end|>\n"
+            + "<|im_start|>assistant\n"
+        )
+
     messages = [
         {
             "role": "system",
