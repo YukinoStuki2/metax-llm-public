@@ -40,6 +40,8 @@ MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "32"))
 # 对“需要代码/实现”的题，允许更长输出，避免截断导致 RougeL 偏低。
 # 注意：默认不把全局 MAX_NEW_TOKENS 拉大，以免短答题浪费 token、拖慢吞吐。
 MAX_NEW_TOKENS_CODE = int(os.environ.get("MAX_NEW_TOKENS_CODE", "192"))
+# 对“可能需要少量代码/索引表达式”的题，给一个更保守的上限，避免小模型长输出发散。
+MAX_NEW_TOKENS_CODE_SOFT = int(os.environ.get("MAX_NEW_TOKENS_CODE_SOFT", "64"))
 WARMUP_PROMPT = "你好"
 
 # Batch 模式：GET / 返回 {"status":"batch"} 后，评测机会一次性把所有问题推到 /predict
@@ -91,9 +93,6 @@ def is_code_question(user_prompt: str) -> bool:
         "伪代码",
         "核心代码",
         "代码片段",
-        "实现",
-        "写出",
-        "给出",
         # CUDA / C/C++ 代码信号（来自 plus 题常见题干/答案形式）
         "__global__",
         "__device__",
@@ -147,8 +146,40 @@ def is_code_question(user_prompt: str) -> bool:
     return any(k in p for k in keywords)
 
 
+def is_hard_code_question(user_prompt: str) -> bool:
+    """更强的代码信号：只有命中这些才允许很长输出。"""
+
+    p = _normalize_text(user_prompt)
+    if not p:
+        return False
+
+    hard = [
+        "kernel<<<",
+        "__global__",
+        "global void",
+        "@triton",
+        "tl.",
+        "tilelang",
+        "#include",
+        "cublas",
+        "wmma",
+        "im2col_kernel",
+        "csr_transpose_kernel",
+    ]
+
+    extra = os.environ.get("HARD_CODE_QUESTION_KEYWORDS", "")
+    extra_words = [w.strip().lower() for w in extra.split(",") if w.strip()]
+    hard.extend(extra_words)
+
+    return any(h in p for h in hard)
+
+
 def pick_max_new_tokens(user_prompt: str) -> int:
-    return MAX_NEW_TOKENS_CODE if is_code_question(user_prompt) else MAX_NEW_TOKENS
+    if is_hard_code_question(user_prompt):
+        return MAX_NEW_TOKENS_CODE
+    if is_code_question(user_prompt):
+        return MAX_NEW_TOKENS_CODE_SOFT
+    return MAX_NEW_TOKENS
 
 
 def _postprocess_answer(text: str, user_prompt: str) -> str:
