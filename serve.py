@@ -40,8 +40,15 @@ MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "32"))
 # 对“需要代码/实现”的题，允许更长输出，避免截断导致 RougeL 偏低。
 # 注意：默认不把全局 MAX_NEW_TOKENS 拉大，以免短答题浪费 token、拖慢吞吐。
 MAX_NEW_TOKENS_CODE = int(os.environ.get("MAX_NEW_TOKENS_CODE", "192"))
+# 对“明确代码形态/核函数”的题允许更长输出（比 MAX_NEW_TOKENS_CODE 更稀有），用于修复少量代码题严重截断。
+MAX_NEW_TOKENS_CODE_HARD = int(os.environ.get("MAX_NEW_TOKENS_CODE_HARD", str(MAX_NEW_TOKENS_CODE)))
 # 对“可能需要少量代码/索引表达式”的题，给一个更保守的上限，避免小模型长输出发散。
 MAX_NEW_TOKENS_CODE_SOFT = int(os.environ.get("MAX_NEW_TOKENS_CODE_SOFT", "64"))
+try:
+    HARD_CODE_MIN_HITS = int(os.environ.get("HARD_CODE_MIN_HITS", "1"))
+except Exception:
+    HARD_CODE_MIN_HITS = 1
+HARD_CODE_MIN_HITS = max(1, min(5, HARD_CODE_MIN_HITS))
 DISABLE_TOKEN_ROUTING = os.environ.get("DISABLE_TOKEN_ROUTING", "0").strip().lower() in (
     "1",
     "true",
@@ -127,7 +134,13 @@ def is_hard_code_question(user_prompt: str) -> bool:
     extra_words = [w.strip().lower() for w in extra.split(",") if w.strip()]
     hard.extend(extra_words)
 
-    return any(h in p for h in hard)
+    hits = 0
+    for h in hard:
+        if h and h in p:
+            hits += 1
+            if hits >= HARD_CODE_MIN_HITS:
+                return True
+    return False
 
 
 def is_long_answer_question(user_prompt: str) -> bool:
@@ -164,11 +177,11 @@ def is_long_answer_question(user_prompt: str) -> bool:
 def pick_max_new_tokens(user_prompt: str) -> int:
     if DISABLE_TOKEN_ROUTING:
         return MAX_NEW_TOKENS
-    # 优先：长答案题（bonus/plus 常见）
-    if is_long_answer_question(user_prompt):
-        return MAX_NEW_TOKENS_CODE
-    # 其次：明确代码题
+    # 极少数“真代码形态”题：给更长上限（可单独调大），避免严重截断。
     if is_hard_code_question(user_prompt):
+        return MAX_NEW_TOKENS_CODE_HARD
+    # 长答案题（bonus/plus 常见）：给中等上限，兼顾吞吐与完整度。
+    if is_long_answer_question(user_prompt):
         return MAX_NEW_TOKENS_CODE
     if is_code_question(user_prompt):
         return MAX_NEW_TOKENS_CODE_SOFT
@@ -1173,7 +1186,10 @@ async def predict(req: PredictionRequest):
         counts: dict[int, int] = {}
         for mt in per_max_tokens:
             counts[int(mt)] = counts.get(int(mt), 0) + 1
-        logging.getLogger(__name__).info("token_routing: %s", dict(sorted(counts.items(), key=lambda x: x[0])))
+        # 用 uvicorn.error logger：默认会输出到控制台，便于在评测/容器日志里直接看到。
+        logging.getLogger("uvicorn.error").info(
+            "token_routing: %s", dict(sorted(counts.items(), key=lambda x: x[0]))
+        )
     backend = getattr(app.state, "backend", "transformers")
 
     if backend == "vllm":

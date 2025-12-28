@@ -47,7 +47,9 @@ export USE_VLLM="true"
 export DISABLE_TOKEN_ROUTING="0"
 export MAX_NEW_TOKENS="32"
 export MAX_NEW_TOKENS_CODE="192"
+export MAX_NEW_TOKENS_CODE_HARD="192"
 export MAX_NEW_TOKENS_CODE_SOFT="64"
+export HARD_CODE_MIN_HITS="1"
 
 # 解码稳定性：抑制复读
 export REPETITION_PENALTY="1.05"
