@@ -189,6 +189,17 @@ def main():
     ap.add_argument("--strip_q_suffix", action="store_true", help="also compute a cleaned score by removing duplicated question suffix")
     ap.add_argument("--batch", action="store_true", help="send all questions in one /predict request (prompt=list[str])")
     ap.add_argument("--save_jsonl", default="eval_details.jsonl")
+    ap.add_argument(
+        "--overwrite_jsonl",
+        action="store_true",
+        help="overwrite --save_jsonl instead of appending (recommended for repeated experiments)",
+    )
+    ap.add_argument(
+        "--debug_first_n",
+        type=int,
+        default=0,
+        help="print first N (q,pred) pairs and token stats for sanity check",
+    )
     args = ap.parse_args()
 
     # 健康检查
@@ -197,6 +208,14 @@ def main():
         print(f"[INFO] health status={hr.status_code}, body={hr.text[:200]}")
     except Exception as e:
         print(f"[WARN] health check failed: {e}")
+
+    if args.overwrite_jsonl and args.save_jsonl:
+        try:
+            with open(args.save_jsonl, "w", encoding="utf-8"):
+                pass
+            print(f"[INFO] overwrite_jsonl=1: truncated {args.save_jsonl}")
+        except Exception as e:
+            print(f"[WARN] failed to truncate {args.save_jsonl}: {e}")
 
     tokenizer = load_tokenizer(args.model_dir_for_tokenizer) if args.model_dir_for_tokenizer else None
     if tokenizer is None and args.model_dir_for_tokenizer:
@@ -250,6 +269,7 @@ def main():
                     preds = preds[: len(qa)]
 
                 per_item_latency = (dt_total / len(qa)) if len(qa) > 0 else 0.0
+                debug_n = max(0, int(args.debug_first_n))
                 for i, ((q, ref), pred) in enumerate(tqdm(list(zip(qa, preds)), desc=f"Eval-{name}-batch")):
                     ok = ok_all and (not (isinstance(pred, str) and pred.startswith("[ERROR]")))
 
@@ -266,6 +286,15 @@ def main():
                     ptok = count_tokens(tokenizer, q)
                     otok_raw = count_tokens(tokenizer, pred)
                     otok_clean = count_tokens(tokenizer, pred_clean)
+
+                    if debug_n > 0 and i < debug_n:
+                        p_preview = (pred or "").replace("\n", "\\n")
+                        if len(p_preview) > 240:
+                            p_preview = p_preview[:240] + "..."
+                        print(f"\n[DEBUG] {name}[{i}] q={q}")
+                        print(f"[DEBUG] {name}[{i}] pred_preview={p_preview}")
+                        if args.model_dir_for_tokenizer:
+                            print(f"[DEBUG] {name}[{i}] tokens(prompt/question)={ptok}, tokens(output)={otok_raw}")
 
                     total_prompt_tokens += ptok
                     total_output_tokens_raw += otok_raw
@@ -318,6 +347,16 @@ def main():
                     otok_raw = count_tokens(tokenizer, pred)
                     otok_clean = count_tokens(tokenizer, pred_clean)
 
+                    debug_n = max(0, int(args.debug_first_n))
+                    if debug_n > 0 and i < debug_n:
+                        p_preview = (pred or "").replace("\n", "\\n")
+                        if len(p_preview) > 240:
+                            p_preview = p_preview[:240] + "..."
+                        print(f"\n[DEBUG] {name}[{i}] q={q}")
+                        print(f"[DEBUG] {name}[{i}] pred_preview={p_preview}")
+                        if args.model_dir_for_tokenizer:
+                            print(f"[DEBUG] {name}[{i}] tokens(prompt/question)={ptok}, tokens(output)={otok_raw}")
+
                     total_prompt_tokens += ptok
                     total_output_tokens_raw += otok_raw
                     total_output_tokens_clean += otok_clean
@@ -355,6 +394,9 @@ def main():
         print(f"Accuracy (RougeL-F1 mean, RAW): {acc_raw:.4f}")
         print(f"Tokens (prompt/answer RAW): {total_prompt_tokens} / {total_output_tokens_raw}")
         print(f"Throughput RAW: answer_tokens/s={out_tps_raw:.2f}, (prompt+answer)_tokens/s={all_tps_raw:.2f}")
+
+        if args.model_dir_for_tokenizer and total_output_tokens_raw == 0:
+            print("[WARN] output token count is 0. Throughput numbers may be meaningless; tokenizer may be incompatible.")
 
         if args.strip_q_suffix:
             acc_clean = sum_score_clean / denom
