@@ -46,7 +46,8 @@ export MODEL_DIR
 
 # 强烈建议优先使用 vLLM（与 Dockerfile 一致）
 : "${USE_VLLM:=true}"
-export USE_VLLM
+: "${DISABLE_TOKEN_ROUTING:=0}"
+export USE_VLLM DISABLE_TOKEN_ROUTING
 : "${MAX_NEW_TOKENS:=32}"
 : "${MAX_NEW_TOKENS_CODE:=192}"
 : "${MAX_NEW_TOKENS_CODE_SOFT:=64}"

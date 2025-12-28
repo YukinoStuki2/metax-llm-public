@@ -44,6 +44,7 @@ export MODELSCOPE_API_TOKEN
 
 # serve.py 运行时参数
 export USE_VLLM="true"
+export DISABLE_TOKEN_ROUTING="0"
 export MAX_NEW_TOKENS="32"
 export MAX_NEW_TOKENS_CODE="192"
 export MAX_NEW_TOKENS_CODE_SOFT="64"

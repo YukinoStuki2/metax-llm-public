@@ -42,6 +42,13 @@ MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "32"))
 MAX_NEW_TOKENS_CODE = int(os.environ.get("MAX_NEW_TOKENS_CODE", "192"))
 # 对“可能需要少量代码/索引表达式”的题，给一个更保守的上限，避免小模型长输出发散。
 MAX_NEW_TOKENS_CODE_SOFT = int(os.environ.get("MAX_NEW_TOKENS_CODE_SOFT", "64"))
+DISABLE_TOKEN_ROUTING = os.environ.get("DISABLE_TOKEN_ROUTING", "0").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "y",
+    "on",
+)
 WARMUP_PROMPT = "你好"
 
 # Batch 模式：GET / 返回 {"status":"batch"} 后，评测机会一次性把所有问题推到 /predict
@@ -175,6 +182,8 @@ def is_hard_code_question(user_prompt: str) -> bool:
 
 
 def pick_max_new_tokens(user_prompt: str) -> int:
+    if DISABLE_TOKEN_ROUTING:
+        return MAX_NEW_TOKENS
     if is_hard_code_question(user_prompt):
         return MAX_NEW_TOKENS_CODE
     if is_code_question(user_prompt):
