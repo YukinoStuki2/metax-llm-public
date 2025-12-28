@@ -317,6 +317,7 @@ def _set_logger_level_prefix(prefix: str, level: int) -> None:
 # ======================
 _vllm_ok = False
 _transformers_ok = False
+_vllm_v1_ok = False
 
 try:
     from vllm import SamplingParams
@@ -328,6 +329,45 @@ try:
     _set_logger_level_prefix("vllm", _vllm_level)
 except Exception:
     _vllm_ok = False
+
+try:
+    # vLLM V1 引擎（开发预览/新版）：AsyncLLM
+    # 注意：不同构建可能不包含 v1 包或接口有差异，因此必须可选导入。
+    from vllm.v1.engine.async_llm import AsyncLLM  # type: ignore
+
+    _vllm_v1_ok = True
+except Exception:
+    _vllm_v1_ok = False
+
+
+def _get_vllm_engine_mode() -> str:
+    """选择 vLLM 推理引擎实现。
+
+    - v0: 现有 AsyncLLMEngine（默认，最稳）
+    - v1: 新版 AsyncLLM（可能更快/更省 CPU 调度开销，但兼容性风险更高）
+
+    说明：我们不复用 VLLM_USE_V1 环境变量作为选择条件，因为该变量可能被平台/插件用作
+    vLLM 内部行为开关；为了不改变既有语义，这里单独用 SERVE_VLLM_ENGINE。
+    """
+
+    return (os.environ.get("SERVE_VLLM_ENGINE") or "v0").strip().lower()
+
+
+def _use_vllm_offline_llm_in_batch_mode() -> bool:
+    """是否在 batch 模式下改用 vLLM 的离线 LLM 批推理入口。
+
+    背景：当前 /predict(batch) 通过 asyncio 并发 N 次 `engine.generate(...)` 来触发 vLLM
+    内部 batching，但 Python 层会创建大量 task + 消费大量 async generator，存在可观调度开销。
+
+    vLLM 的 `LLM.generate(list_prompts)` 是面向离线批推理设计的接口，单次调用即可把所有
+    prompt 提交给引擎，通常能更充分地吃满引擎的连续批处理能力。
+
+    说明：该模式仅在 BATCH_MODE=1 时默认启用；也可通过环境变量显式开关。
+    """
+
+    if not is_batch_mode():
+        return False
+    return os.environ.get("VLLM_BATCH_USE_LLM", "1") == "1"
 
 try:
     import torch
@@ -554,28 +594,92 @@ async def lifespan(app: FastAPI):
             except Exception:
                 pass
 
+            use_offline_llm = _use_vllm_offline_llm_in_batch_mode()
+            engine_mode = _get_vllm_engine_mode()
+
             def _build_engine() -> AsyncLLMEngine:
                 engine_args = AsyncEngineArgs(**engine_kwargs)
                 return AsyncLLMEngine.from_engine_args(engine_args)
 
-            try:
-                app.state.engine = _build_engine()
-            except Exception as e:
-                last_err: Exception = e
-                engine_built = False
+            def _build_engine_v1():
+                # V1 引擎：AsyncLLM
+                # generate 签名为 generate(request_id=..., prompt=..., sampling_params=...)
+                engine_args = AsyncEngineArgs(**engine_kwargs)
+                return AsyncLLM.from_engine_args(engine_args)  # type: ignore
 
-                # 1) 若 compilation_config 来自环境变量覆盖，则跨版本尝试自动修正一次类型。
-                if _HAS_MX_DEVICE and _maybe_fix_compilation_config(engine_kwargs, last_err):
+            def _build_llm():
+                # 注意：LLM 是同步接口，适合离线/大 batch；我们会在 /predict 中用 to_thread 包装。
+                # 这里尽量复用与 AsyncEngineArgs 一致的参数集（LLM 的 **kwargs 会转发给 EngineArgs）。
+                from vllm import LLM  # 延迟导入，避免在不需要时引入额外依赖链
+
+                llm_kwargs = dict(engine_kwargs)
+                return LLM(**llm_kwargs)
+
+            try:
+                if use_offline_llm:
+                    print("BATCH_MODE=1: using vLLM LLM.generate(list_prompts) path")
+                    app.state.llm = _build_llm()
+                    app.state.llm_lock = asyncio.Lock()
+                    app.state.engine = None
+                    app.state.engine_kind = "llm"
+                else:
+                    if engine_mode == "v1" and _vllm_v1_ok:
+                        print("Using vLLM V1 engine (AsyncLLM)")
+                        app.state.engine = _build_engine_v1()
+                        app.state.engine_kind = "async_v1"
+                    else:
+                        if engine_mode == "v1" and not _vllm_v1_ok:
+                            print("SERVE_VLLM_ENGINE=v1 requested but v1 engine not available; fallback to v0")
+                        app.state.engine = _build_engine()
+                        app.state.engine_kind = "async_v0"
+                    app.state.llm = None
+                    app.state.llm_lock = None
+            except Exception as e:
+                # 若 LLM 路线失败，自动回退到 AsyncLLMEngine（尽量不影响可用性）。
+                if use_offline_llm:
+                    print("vLLM LLM init failed, fallback to AsyncLLMEngine. Error:", e)
                     try:
                         app.state.engine = _build_engine()
+                        app.state.llm = None
+                        app.state.llm_lock = None
+                        app.state.engine_kind = "async_v0"
                         engine_built = True
-                    except Exception as e2:
-                        last_err = e2
+                        last_err = e
+                    except Exception as e_engine:
+                        last_err = e_engine
+                        engine_built = False
+                else:
+                    # 若 V1 引擎失败，自动回退到 V0 引擎
+                    if engine_mode == "v1":
+                        print("vLLM V1 engine init failed, fallback to v0. Error:", e)
+                        try:
+                            app.state.engine = _build_engine()
+                            app.state.engine_kind = "async_v0"
+                            app.state.llm = None
+                            app.state.llm_lock = None
+                            engine_built = True
+                            last_err = e
+                        except Exception as e_engine:
+                            last_err = e_engine
+                            engine_built = False
+                    else:
+                        last_err = e
+                        engine_built = False
+
+                # 仅 AsyncLLMEngine 路线需要这组回退。
+                if not use_offline_llm:
+                    # 1) 若 compilation_config 来自环境变量覆盖，则跨版本尝试自动修正一次类型。
+                    if _HAS_MX_DEVICE and _maybe_fix_compilation_config(engine_kwargs, last_err):
+                        try:
+                            app.state.engine = _build_engine()
+                            engine_built = True
+                        except Exception as e2:
+                            last_err = e2
 
                 # 2) MetaX：如果非 eager 初始化失败，自动回退为 eager（更保守但通常更稳）。
                 # 说明：你日志里 enforce_eager=True 会禁用 cudagraph，吞吐可能下降；
                 # 因此这里优先让性能模式成功，失败再回退。
-                if not engine_built:
+                if (not use_offline_llm) and (not engine_built):
                     try:
                         sig = inspect.signature(AsyncEngineArgs.__init__)
                         can_set_eager = ("enforce_eager" in sig.parameters)
@@ -599,7 +703,7 @@ async def lifespan(app: FastAPI):
 
                 # 3) 若 KV cache 不足以支撑模型配置的最大序列长度，且 vLLM 支持设置 max_model_len，
                 # 则降低长度重试一次。
-                if not engine_built:
+                if (not use_offline_llm) and (not engine_built):
                     suggested_len = _maybe_parse_estimated_max_len(last_err)
                     try:
                         sig = inspect.signature(AsyncEngineArgs.__init__)
@@ -633,7 +737,7 @@ async def lifespan(app: FastAPI):
                 if not engine_built:
                     raise last_err
             app.state.backend = "vllm"
-            print("vLLM engine initialized successfully!")
+            print("vLLM backend initialized successfully!")
 
             async def _warmup_vllm():
                 try:
@@ -644,9 +748,26 @@ async def lifespan(app: FastAPI):
                         max_tokens=8,
                         frequency_penalty=0.0,
                     )
-                    gen = app.state.engine.generate(WARMUP_PROMPT, sp, request_id="warmup")
-                    async for _ in gen:
-                        pass
+                    if getattr(app.state, "llm", None) is not None:
+                        llm = app.state.llm
+
+                        def _do_warmup():
+                            _ = llm.generate([WARMUP_PROMPT], sampling_params=sp, use_tqdm=False)
+
+                        # 同步接口：放到线程池里预热
+                        await asyncio.to_thread(_do_warmup)
+                    else:
+                        engine_kind = getattr(app.state, "engine_kind", "async_v0")
+                        if engine_kind == "async_v1":
+                            gen = app.state.engine.generate(
+                                request_id="warmup",
+                                prompt=WARMUP_PROMPT,
+                                sampling_params=sp,
+                            )
+                        else:
+                            gen = app.state.engine.generate(WARMUP_PROMPT, sp, request_id="warmup")
+                        async for _ in gen:
+                            pass
                     print("vLLM warmup done")
                 except Exception as e:
                     print("vLLM warmup failed (continue):", e)
@@ -737,7 +858,53 @@ async def predict(req: PredictionRequest):
     backend = getattr(app.state, "backend", "transformers")
 
     if backend == "vllm":
+        # 若初始化阶段选择了离线 LLM 路线（主要用于 BATCH_MODE=1 的极限吞吐），
+        # 则单次调用 LLM.generate(list_prompts) 完成整个 batch。
+        llm = getattr(app.state, "llm", None)
+        if llm is not None:
+            sampling_params_cache: dict[int, SamplingParams] = {}
+
+            def get_sampling_params(max_tokens: int) -> SamplingParams:
+                mt = int(max_tokens)
+                sp = sampling_params_cache.get(mt)
+                if sp is None:
+                    sp = SamplingParams(
+                        temperature=0.0,
+                        top_p=1.0,
+                        top_k=TOP_K,
+                        max_tokens=mt,
+                        frequency_penalty=0.0,
+                    )
+                    sampling_params_cache[mt] = sp
+                return sp
+
+            params_list = [get_sampling_params(mt) for mt in per_max_tokens]
+            llm_lock = getattr(app.state, "llm_lock", None)
+
+            async def _run_llm_batch() -> List[str]:
+                def _do_generate() -> List[str]:
+                    outs = llm.generate(prompt_texts, sampling_params=params_list, use_tqdm=False)
+                    results: List[str] = []
+                    for o in outs:
+                        if not getattr(o, "outputs", None):
+                            results.append("")
+                            continue
+                        results.append(strip_think(o.outputs[0].text))
+                    return results
+
+                if llm_lock is None:
+                    return await asyncio.to_thread(_do_generate)
+                async with llm_lock:
+                    return await asyncio.to_thread(_do_generate)
+
+            outputs = await _run_llm_batch()
+            if len(outputs) == 1 and isinstance(req.prompt, str):
+                return PredictionResponse(response=outputs[0])
+            return PredictionResponse(response=outputs)
+
+        # 默认：AsyncLLMEngine 路线（异步流式，靠并发触发引擎 batching）
         engine = app.state.engine
+        engine_kind = getattr(app.state, "engine_kind", "async_v0")
 
         sampling_params_cache: dict[int, SamplingParams] = {}
 
@@ -758,7 +925,14 @@ async def predict(req: PredictionRequest):
         async def run_one(text_prompt: str, max_tokens: int) -> str:
             # vLLM 的 request_id 需要唯一；batch 并发下用 uuid 避免竞争条件
             rid = uuid.uuid4().hex
-            results = engine.generate(text_prompt, get_sampling_params(max_tokens), rid)
+            if engine_kind == "async_v1":
+                results = engine.generate(
+                    request_id=rid,
+                    prompt=text_prompt,
+                    sampling_params=get_sampling_params(max_tokens),
+                )
+            else:
+                results = engine.generate(text_prompt, get_sampling_params(max_tokens), rid)
             final_output = None
             async for request_output in results:
                 final_output = request_output
