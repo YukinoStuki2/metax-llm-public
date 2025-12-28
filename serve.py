@@ -124,6 +124,106 @@ def _env_flag(name: str, default: bool = False) -> bool:
         return default
     return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
 
+
+def _build_speculative_config_from_env(abs_model_dir: str) -> Optional[dict]:
+    """根据环境变量构造 vLLM 的 speculative_config（dict 形式）。
+
+    vLLM 0.11+ 的 AsyncEngineArgs/EngineArgs 支持 speculative_config: dict。
+    - 若 draft 模型目录不存在或未启用，则返回 None。
+    - 启用后会默认走 draft_model 方法（可通过环境变量覆盖）。
+
+    注意：vLLM 当前实现下 speculative decoding 与 chunked prefill 不兼容；
+    因此启用 speculative 时应确保 enable_chunked_prefill=False。
+    """
+
+    if not _env_flag("ENABLE_SPECULATIVE_DECODING", False):
+        return None
+
+    # 经验值：4~8 通常是较稳的默认；太大可能让验证成本上升。
+    try:
+        num_spec = int(os.environ.get("SPEC_NUM_SPECULATIVE_TOKENS", "6"))
+    except Exception:
+        num_spec = 6
+    num_spec = max(1, min(32, int(num_spec)))
+
+    method = (os.environ.get("SPEC_METHOD") or "draft_model").strip() or "draft_model"
+
+    # ngram：无需 draft 模型，适合快速试验（收益不一定明显）。
+    if method == "ngram":
+        try:
+            prompt_lookup_max = int(os.environ.get("SPEC_NGRAM_LOOKUP_MAX", "8"))
+        except Exception:
+            prompt_lookup_max = 8
+        try:
+            prompt_lookup_min = int(os.environ.get("SPEC_NGRAM_LOOKUP_MIN", "1"))
+        except Exception:
+            prompt_lookup_min = 1
+        cfg: dict[str, Any] = {
+            "num_speculative_tokens": num_spec,
+            "method": "ngram",
+            "prompt_lookup_max": max(1, prompt_lookup_max),
+            "prompt_lookup_min": max(1, prompt_lookup_min),
+            "disable_logprobs": True,
+        }
+        print(
+            "Speculative decoding enabled:",
+            "method=ngram",
+            "num_speculative_tokens=", cfg.get("num_speculative_tokens"),
+            "prompt_lookup_max=", cfg.get("prompt_lookup_max"),
+            "prompt_lookup_min=", cfg.get("prompt_lookup_min"),
+            "target_model_dir=", abs_model_dir,
+        )
+        return cfg
+
+    # 其他方法：默认走 draft_model，需要 draft 模型目录。
+    draft_dir = (os.environ.get("SPEC_DRAFT_MODEL_DIR") or "").strip()
+    if not draft_dir:
+        draft_id = (os.environ.get("SPEC_DRAFT_MODEL_ID") or "").strip()
+        if draft_id:
+            draft_dir = os.path.join("./model", draft_id)
+
+    if not draft_dir:
+        print("ENABLE_SPECULATIVE_DECODING=1 but no SPEC_DRAFT_MODEL_DIR/SPEC_DRAFT_MODEL_ID set; disable speculative")
+        return None
+
+    abs_draft_dir = os.path.abspath(draft_dir)
+    if not os.path.isdir(abs_draft_dir):
+        print("Speculative draft model dir not found; disable speculative. draft_dir =", abs_draft_dir)
+        return None
+
+    cfg: dict[str, Any] = {
+        "model": abs_draft_dir,
+        "num_speculative_tokens": num_spec,
+        "method": method,
+        # 评测只需要 text；关闭 logprobs 可减少开销。
+        "disable_logprobs": True,
+    }
+
+    # 可选：当排队请求过多时自动禁用 speculation（避免二模型拖慢）。
+    disable_by_batch = (os.environ.get("SPEC_DISABLE_BY_BATCH_SIZE") or "").strip()
+    if disable_by_batch:
+        try:
+            cfg["disable_by_batch_size"] = int(disable_by_batch)
+        except Exception:
+            pass
+
+    # 兼容：若用户显式指定 draft 的 max_model_len，允许覆盖。
+    draft_max_len = (os.environ.get("SPEC_DRAFT_MAX_MODEL_LEN") or "").strip()
+    if draft_max_len:
+        try:
+            cfg["max_model_len"] = int(draft_max_len)
+        except Exception:
+            pass
+
+    print(
+        "Speculative decoding enabled:",
+        "method=", cfg.get("method"),
+        "num_speculative_tokens=", cfg.get("num_speculative_tokens"),
+        "draft_model_dir=", abs_draft_dir,
+        "target_model_dir=", abs_model_dir,
+    )
+    return cfg
+
 # vLLM 开关：auto/true/false
 USE_VLLM = os.environ.get("USE_VLLM", "true").lower()
 
@@ -529,6 +629,8 @@ async def lifespan(app: FastAPI):
                 disable_log_stats=True,
             )
 
+            speculative_cfg = _build_speculative_config_from_env(abs_model_dir)
+
             # 可选：覆盖最大序列长度（在小显存 GPU 上有助于避免 KV-cache OOM）。
             max_model_len_env = os.environ.get("MAX_MODEL_LEN")
 
@@ -615,6 +717,14 @@ async def lifespan(app: FastAPI):
                     except Exception:
                         pass
 
+                # speculative decoding：跨平台透传（参数存在才设置）。
+                # 注意：vLLM 当前实现中 speculative decoding 与 chunked prefill 不兼容；启用时强制关闭。
+                if speculative_cfg is not None:
+                    if "enable_chunked_prefill" in sig.parameters:
+                        engine_kwargs["enable_chunked_prefill"] = False
+                    if "speculative_config" in sig.parameters:
+                        engine_kwargs["speculative_config"] = dict(speculative_cfg)
+
                 if "device" in sig.parameters:
                     vllm_device = (os.environ.get("VLLM_DEVICE") or "cuda").strip() or "cuda"
                     engine_kwargs["device"] = vllm_device
@@ -641,6 +751,15 @@ async def lifespan(app: FastAPI):
                 from vllm import LLM  # 延迟导入，避免在不需要时引入额外依赖链
 
                 llm_kwargs = dict(engine_kwargs)
+                # 某些构建中 LLM.__init__ 的参数集与 AsyncEngineArgs 略有差异；这里做一次防御性过滤。
+                try:
+                    llm_sig = inspect.signature(LLM.__init__)
+                    if "speculative_config" not in llm_sig.parameters:
+                        llm_kwargs.pop("speculative_config", None)
+                    if "enable_chunked_prefill" not in llm_sig.parameters:
+                        llm_kwargs.pop("enable_chunked_prefill", None)
+                except Exception:
+                    pass
                 return LLM(**llm_kwargs)
 
             try:

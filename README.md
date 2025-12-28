@@ -140,6 +140,23 @@ python merge_adapter.py \
 python eval_local.py --batch --strip_q_suffix --which bonus --max_n 50
 ```
 
+## Speculative Decoding（冲吞吐，可选）
+
+本仓库已在 [serve.py](serve.py) 接入 vLLM 的 speculative decoding（需要一个 draft 小模型）。
+
+- 启用方式（运行期）：
+  - `ENABLE_SPECULATIVE_DECODING=1`
+  - 两种模式：
+    - draft 模型（推荐）：指定 `SPEC_DRAFT_MODEL_DIR=/app/model/<draft>`（或用 `SPEC_DRAFT_MODEL_ID` 让构建期下载），并保持 `SPEC_METHOD=draft_model`
+    - ngram（无需 draft，快速试验）：`SPEC_METHOD=ngram`，可调 `SPEC_NGRAM_LOOKUP_MAX=8`/`SPEC_NGRAM_LOOKUP_MIN=1`
+  - 可调：`SPEC_NUM_SPECULATIVE_TOKENS=6`（建议 4~8）
+
+- 构建期下载 draft（Dockerfile 已透传参数，默认 draft 下载失败不阻断构建）：
+  - `SPEC_DRAFT_MODEL_ID=<ModelScope 模型 ID>`
+  - `SPEC_DRAFT_MODEL_REVISION=master`
+
+注意：vLLM 当前实现中 speculative decoding 与 chunked prefill 不兼容；当启用 speculative 时，服务端会强制关闭 `enable_chunked_prefill`。
+
 ## AWQ 量化（AutoAWQ，覆盖上传同名模型）
 
 说明：部分环境/架构不支持 Marlin kernel，因此此前 compressed-tensors 路线可能无法运行。这里提供 AutoAWQ 量化脚本，输出目录固定为 `model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ`，可直接用上传脚本覆盖同名仓库。

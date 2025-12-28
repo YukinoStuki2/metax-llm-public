@@ -13,10 +13,24 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM
 ENV MODEL_REVISION=master
 
+# Speculative Decoding（可选）：draft 模型
+# - 默认不启用（ENABLE_SPECULATIVE_DECODING=0），避免因为不兼容/额外开销影响稳定性。
+# - 如需启用：
+#   1) 设置 SPEC_DRAFT_MODEL_ID（会在 build 阶段下载到 ./model/$SPEC_DRAFT_MODEL_ID）
+#   2) 运行时设置 ENABLE_SPECULATIVE_DECODING=1
+ENV ENABLE_SPECULATIVE_DECODING=0 \
+        SPEC_DRAFT_MODEL_ID= \
+        SPEC_DRAFT_MODEL_REVISION=master \
+        SPEC_NUM_SPECULATIVE_TOKENS=6 \
+        SPEC_METHOD=draft_model
+
 RUN python download_model.py \
         --model_name "$MODEL_ID" \
         --cache_dir ./model \
-        --revision "$MODEL_REVISION"
+                --revision "$MODEL_REVISION" \
+                --draft_model_name "$SPEC_DRAFT_MODEL_ID" \
+                --draft_revision "$SPEC_DRAFT_MODEL_REVISION" \
+                --draft_optional
 
 # 运行时默认加载下载的融合模型目录
 ENV MODEL_DIR=./model/$MODEL_ID

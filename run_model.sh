@@ -19,6 +19,21 @@ export OMP_NUM_THREADS="4"
 export MODEL_ID="YukinoStuki/Qwen3-4B-Plus-LLM"
 export MODEL_REVISION="master"
 
+# ======================
+# Speculative Decoding（可选）
+# ======================
+# 默认关闭；需要时可在执行脚本前覆盖这些环境变量。
+: "${ENABLE_SPECULATIVE_DECODING:=0}"
+: "${SPEC_DRAFT_MODEL_ID:=}"
+: "${SPEC_DRAFT_MODEL_REVISION:=master}"
+: "${SPEC_NUM_SPECULATIVE_TOKENS:=6}"
+: "${SPEC_METHOD:=draft_model}"
+: "${SPEC_NGRAM_LOOKUP_MAX:=8}"
+: "${SPEC_NGRAM_LOOKUP_MIN:=1}"
+: "${SPEC_DRAFT_OPTIONAL:=1}"
+export ENABLE_SPECULATIVE_DECODING SPEC_DRAFT_MODEL_ID SPEC_DRAFT_MODEL_REVISION \
+  SPEC_NUM_SPECULATIVE_TOKENS SPEC_METHOD SPEC_NGRAM_LOOKUP_MAX SPEC_NGRAM_LOOKUP_MIN SPEC_DRAFT_OPTIONAL
+
 # 模型下载 token（可选）：此脚本不读取本机环境变量，避免不同机器环境不一致。
 export MODELSCOPE_API_TOKEN=""
 
@@ -84,7 +99,10 @@ mkdir -p ./model
 "$PYTHON_BIN" download_model.py \
   --model_name "$MODEL_ID" \
   --cache_dir ./model \
-  --revision "$MODEL_REVISION"
+  --revision "$MODEL_REVISION" \
+  --draft_model_name "$SPEC_DRAFT_MODEL_ID" \
+  --draft_revision "$SPEC_DRAFT_MODEL_REVISION" \
+  --draft_optional
 
 # ======================
 # 4) 启动服务（与 Dockerfile 的 CMD 保持一致）
