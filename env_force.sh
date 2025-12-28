@@ -24,7 +24,7 @@ say() { echo "[env_force] $*"; }
 export OMP_NUM_THREADS="4"
 
 # 模型下载/加载
-export MODEL_ID="YukinoStuki/Qwen3-4B-Plus-LLM"
+export MODEL_ID="YukinoStuki/Qwen3-1.7B-Plus-LLM"
 export MODEL_REVISION="master"
 export MODEL_DIR="./model/$MODEL_ID"
 
