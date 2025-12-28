@@ -51,6 +51,10 @@ export MAX_NEW_TOKENS_CODE="192"
 export REPETITION_PENALTY="1.05"
 export FREQUENCY_PENALTY="0.1"
 
+# 输出后处理：非代码题裁剪示例段、限制句子数（提高 Rouge 稳定性）
+export OUTPUT_TRIM_EXAMPLES="1"
+export OUTPUT_MAX_SENTENCES="6"
+
 export BATCH_MODE="1"
 export BATCH_CONCURRENCY="512"
 export TEMPERATURE="0.0"

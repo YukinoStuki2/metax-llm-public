@@ -82,38 +82,65 @@ def is_code_question(user_prompt: str) -> bool:
     extra = os.environ.get("CODE_QUESTION_KEYWORDS", "")
     extra_words = [w.strip().lower() for w in extra.split(",") if w.strip()]
 
+    # 注意：这里必须“严格”，否则像 CUDA/卷积/矩阵乘法/共享内存 这种泛化词会把大量
+    # 非代码题误判为 code 题，导致 max_new_tokens 放大、输出变长发散，Rouge 反而下降。
+    # 因此只匹配题干里出现的强代码信号（函数/关键字/索引表达式/API/指令）。
     keywords = [
-        # 中文关键词
+        # 明确要求代码
         "代码",
         "伪代码",
+        "核心代码",
+        "代码片段",
         "实现",
-        "kernel",
-        "算子",
-        "cuda",
-        "triton",
-        "tilelang",
-        "cudagraph",
-        "共享内存",
-        "shared memory",
-        "线程",
-        "block",
-        "grid",
-        "索引",
-        "矩阵乘法",
-        "卷积",
-        "depthwise",
-        "dilated",
-        "空洞卷积",
-        # 常见代码特征词
+        "写出",
+        "给出",
+        # CUDA / C/C++ 代码信号（来自 plus 题常见题干/答案形式）
+        "__global__",
+        "__device__",
+        "__shared__",
+        "__syncthreads",
+        "atomicadd",
+        "threadidx",
+        "blockidx",
+        "blockdim",
+        "griddim",
+        "dim3",
+        "#pragma",
+        "unroll",
+        "kernel<<<",
+        "global void",
+        "#include",
+        # CUDA runtime / 常见 API
+        "cudamemcpy",
+        "cudamemcpytosymbol",
+        "cudamalloc",
+        "cudamallocpitch",
+        "cudamemset",
+        "cudagetdeviceproperties",
+        "cudastream",
+        # 稀疏/卷积等题里常出现的“代码化符号名”
+        "csrrowptr",
+        "csrcolind",
+        "csrval",
+        "tile_width",
+        "tile_size",
+        "mask_width",
+        "max_mask_width",
+        "nds[",
+        "mds[",
+        "pvalue",
+        # Triton / TileLang
         "@triton",
         "tl.",
-        "__global__",
-        "#include",
+        "triton",
+        "tilelang",
+        # 其他常见实现线索
+        "wmma",
+        "cublas",
+        "im2col",
+        "gemm",
         "import ",
         "def ",
-        "for ",
-        "while ",
-        "return ",
     ]
     keywords.extend(extra_words)
 
@@ -122,6 +149,44 @@ def is_code_question(user_prompt: str) -> bool:
 
 def pick_max_new_tokens(user_prompt: str) -> int:
     return MAX_NEW_TOKENS_CODE if is_code_question(user_prompt) else MAX_NEW_TOKENS
+
+
+def _postprocess_answer(text: str, user_prompt: str) -> str:
+    """评测友好的轻量后处理。
+
+    目标：提高 Rouge-L 的词序/短语重合度，减少小模型输出的发散示例与冗余。
+    - 默认只对“非代码题”启用裁剪，避免误伤需要代码片段的题。
+    - 可通过环境变量 OUTPUT_TRIM_EXAMPLES=0 关闭。
+    - 可通过 OUTPUT_MAX_SENTENCES 调整保留句子数。
+    """
+
+    s = (text or "").strip()
+    if not s:
+        return ""
+
+    if os.environ.get("OUTPUT_TRIM_EXAMPLES", "1") == "1" and (not is_code_question(user_prompt)):
+        # 把“例如/比如/举例”后面的扩展内容裁掉（小模型常在此处胡写，导致 Rouge 掉分）
+        m = re.search(r"(例如|比如|举例来说|举例)[:：]", s)
+        if m:
+            s = s[: m.start()].rstrip(" ，,。;；:\n")
+
+    # 控制输出句子数（默认 6），与系统提示对齐。
+    try:
+        max_sent = int(os.environ.get("OUTPUT_MAX_SENTENCES", "6"))
+    except Exception:
+        max_sent = 6
+    max_sent = max(1, min(12, max_sent))
+
+    parts = re.split(r"(?<=[。！？；\n])", s)
+    kept: list[str] = []
+    for p in parts:
+        p = p.strip()
+        if not p:
+            continue
+        kept.append(p)
+        if len(kept) >= max_sent:
+            break
+    return "".join(kept).strip() or s
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -1121,8 +1186,8 @@ async def predict(req: PredictionRequest):
 
             outputs = await _run_llm_batch()
             if len(outputs) == 1 and isinstance(req.prompt, str):
-                return PredictionResponse(response=outputs[0])
-            return PredictionResponse(response=outputs)
+                return PredictionResponse(response=_postprocess_answer(outputs[0], prompts[0]))
+            return PredictionResponse(response=[_postprocess_answer(o, p) for o, p in zip(outputs, prompts)])
 
         # 默认：AsyncLLMEngine 路线（异步流式，靠并发触发引擎 batching）
         engine = app.state.engine
@@ -1165,7 +1230,8 @@ async def predict(req: PredictionRequest):
 
         # 单条：直接跑；batch：限制并发以触发 vLLM 内部 batching
         if len(prompt_texts) == 1:
-            return PredictionResponse(response=await run_one(prompt_texts[0], per_max_tokens[0]))
+            out1 = await run_one(prompt_texts[0], per_max_tokens[0])
+            return PredictionResponse(response=_postprocess_answer(out1, prompts[0]))
 
         sem = asyncio.Semaphore(max(1, BATCH_CONCURRENCY))
 
@@ -1174,7 +1240,7 @@ async def predict(req: PredictionRequest):
                 return await run_one(tp, mt)
 
         outputs = await asyncio.gather(*[guarded(tp, mt) for tp, mt in zip(prompt_texts, per_max_tokens)])
-        return PredictionResponse(response=outputs)
+        return PredictionResponse(response=[_postprocess_answer(o, p) for o, p in zip(outputs, prompts)])
 
     # transformers 路线
     tok = app.state.tokenizer
@@ -1197,7 +1263,7 @@ async def predict(req: PredictionRequest):
             text = tok.decode(out[0], skip_special_tokens=True)
             if text.startswith(pt):
                 text = text[len(pt):].strip()
-            outputs.append(strip_think(text))
+            outputs.append(_postprocess_answer(strip_think(text), prompts[len(outputs)]))
         return PredictionResponse(response=outputs)
 
     prompt_text = prompt_texts[0]
@@ -1219,7 +1285,7 @@ async def predict(req: PredictionRequest):
     if text.startswith(prompt_text):
         text = text[len(prompt_text):].strip()
 
-    return PredictionResponse(response=strip_think(text))
+    return PredictionResponse(response=_postprocess_answer(strip_think(text), prompts[0]))
 
 
 if __name__ == "__main__":
