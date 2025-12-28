@@ -790,15 +790,18 @@ async def lifespan(app: FastAPI):
                 from vllm import LLM  # 延迟导入，避免在不需要时引入额外依赖链
 
                 llm_kwargs = dict(engine_kwargs)
-                # 某些构建中 LLM.__init__ 的参数集与 AsyncEngineArgs 略有差异；这里做一次防御性过滤。
+                # vLLM 的 LLM(...) 通常会把 **kwargs 转发给内部的 EngineArgs/EngineConfig，
+                # 即使 LLM.__init__ 签名里没有显式列出 speculative_config 也可能支持。
+                # 因此我们"先尝试传入，让 vLLM 自行处理；失败时外层 try-except 会捕获并回退"。
                 try:
                     llm_sig = inspect.signature(LLM.__init__)
                     if "speculative_config" not in llm_sig.parameters:
                         if "speculative_config" in llm_kwargs:
-                            print("[spec] LLM.__init__ does not accept speculative_config; dropping it for compatibility")
-                        llm_kwargs.pop("speculative_config", None)
+                            print("[spec] LLM.__init__ signature does not list speculative_config (may still forward to EngineArgs)")
+                    # enable_chunked_prefill 同理：即使签名里没有，也可能被转发；不主动过滤。
                     if "enable_chunked_prefill" not in llm_sig.parameters:
-                        llm_kwargs.pop("enable_chunked_prefill", None)
+                        if "enable_chunked_prefill" in llm_kwargs:
+                            print("[spec] LLM.__init__ signature does not list enable_chunked_prefill (may still forward)")
                 except Exception:
                     pass
                 return LLM(**llm_kwargs)
