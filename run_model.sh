@@ -34,8 +34,9 @@ export MODEL_REVISION="master"
 export ENABLE_SPECULATIVE_DECODING SPEC_DRAFT_MODEL_ID SPEC_DRAFT_MODEL_REVISION \
   SPEC_NUM_SPECULATIVE_TOKENS SPEC_METHOD SPEC_NGRAM_LOOKUP_MAX SPEC_NGRAM_LOOKUP_MIN SPEC_DRAFT_OPTIONAL
 
-# 模型下载 token（可选）：此脚本不读取本机环境变量，避免不同机器环境不一致。
-export MODELSCOPE_API_TOKEN=""
+# 模型下载 token（可选）：允许在执行脚本前注入，默认空=匿名下载。
+: "${MODELSCOPE_API_TOKEN:=}"
+export MODELSCOPE_API_TOKEN
 
 # Dockerfile 下载到 ./model，并设置运行时 MODEL_DIR=./model/$MODEL_ID
 export MODEL_DIR="./model/$MODEL_ID"
@@ -100,6 +101,7 @@ mkdir -p ./model
   --model_name "$MODEL_ID" \
   --cache_dir ./model \
   --revision "$MODEL_REVISION" \
+  --token "$MODELSCOPE_API_TOKEN" \
   --draft_model_name "$SPEC_DRAFT_MODEL_ID" \
   --draft_revision "$SPEC_DRAFT_MODEL_REVISION" \
   --draft_optional

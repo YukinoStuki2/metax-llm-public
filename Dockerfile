@@ -28,6 +28,7 @@ RUN python download_model.py \
         --model_name "$MODEL_ID" \
         --cache_dir ./model \
                 --revision "$MODEL_REVISION" \
+        --token "$MODELSCOPE_API_TOKEN" \
                 --draft_model_name "$SPEC_DRAFT_MODEL_ID" \
                 --draft_revision "$SPEC_DRAFT_MODEL_REVISION" \
                 --draft_optional

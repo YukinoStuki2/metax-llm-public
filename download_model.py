@@ -10,6 +10,12 @@ def parse_args():
     parser.add_argument('--model_name', type=str, default=os.environ.get('MODEL_ID', 'YukinoStuki/Qwen3-4B-Plus-Merged'),
                         help='Model name in format: organization/model_name')
     parser.add_argument(
+        '--token',
+        type=str,
+        default=os.environ.get('MODELSCOPE_API_TOKEN', ''),
+        help='(Optional) ModelScope API token. If empty, download anonymously.',
+    )
+    parser.add_argument(
         '--draft_model_name',
         type=str,
         default=os.environ.get('SPEC_DRAFT_MODEL_ID', ''),
@@ -34,12 +40,13 @@ def parse_args():
     return parser.parse_args()
 
 if __name__ == "__main__":
-    token = os.environ.get("MODELSCOPE_API_TOKEN", "")
+    sh_args = parse_args()
+
+    token = (sh_args.token or '').strip()
     if token:
         api = HubApi()
         api.login(token)
-        print("Using MODELSCOPE_API_TOKEN from environment for authenticated download.")
-    sh_args = parse_args()
+        print("Using ModelScope token for authenticated download.")
     try:
         model_dir = snapshot_download(
             sh_args.model_name,
