@@ -1169,6 +1169,11 @@ async def predict(req: PredictionRequest):
     prompts = to_list(req.prompt)
     prompt_texts = [format_as_chat(tokenizer, p) for p in prompts]
     per_max_tokens = [pick_max_new_tokens(p) for p in prompts]
+    if os.environ.get("LOG_TOKEN_ROUTING", "0").strip().lower() in ("1", "true", "yes", "y", "on"):
+        counts: dict[int, int] = {}
+        for mt in per_max_tokens:
+            counts[int(mt)] = counts.get(int(mt), 0) + 1
+        logging.getLogger(__name__).info("token_routing: %s", dict(sorted(counts.items(), key=lambda x: x[0])))
     backend = getattr(app.state, "backend", "transformers")
 
     if backend == "vllm":
