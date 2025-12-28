@@ -224,6 +224,37 @@ def _build_speculative_config_from_env(abs_model_dir: str) -> Optional[dict]:
     )
     return cfg
 
+
+def _try_print_effective_speculative_config(llm_obj: Any) -> None:
+    """尽力从 vLLM 的内部对象中读回 speculative_config（仅用于诊断）。"""
+    try:
+        candidates: list[Any] = []
+        for attr in ("llm_engine", "engine", "_engine"):
+            if hasattr(llm_obj, attr):
+                candidates.append(getattr(llm_obj, attr))
+        candidates.append(llm_obj)
+
+        visited: set[int] = set()
+        while candidates:
+            cur = candidates.pop(0)
+            if cur is None or id(cur) in visited:
+                continue
+            visited.add(id(cur))
+
+            for attr in ("engine_config", "vllm_config", "config"):
+                if hasattr(cur, attr):
+                    candidates.append(getattr(cur, attr))
+
+            if hasattr(cur, "speculative_config"):
+                val = getattr(cur, "speculative_config")
+                if val is not None:
+                    print("[spec] Effective speculative_config found:", val)
+                    return
+
+        print("[spec] Effective speculative_config not found from LLM object (may still be enabled internally).")
+    except Exception as e:
+        print("[spec] Failed to introspect effective speculative_config:", e)
+
 # vLLM 开关：auto/true/false
 USE_VLLM = os.environ.get("USE_VLLM", "true").lower()
 
@@ -724,6 +755,14 @@ async def lifespan(app: FastAPI):
                         engine_kwargs["enable_chunked_prefill"] = False
                     if "speculative_config" in sig.parameters:
                         engine_kwargs["speculative_config"] = dict(speculative_cfg)
+                        try:
+                            m = engine_kwargs["speculative_config"].get("method")
+                            n = engine_kwargs["speculative_config"].get("num_speculative_tokens")
+                            print("[spec] Injected speculative_config into EngineArgs:", f"method={m}", f"num_spec_tokens={n}")
+                        except Exception:
+                            print("[spec] Injected speculative_config into EngineArgs")
+                    else:
+                        print("[spec] AsyncEngineArgs does not accept speculative_config; speculative decoding will NOT be active")
 
                 if "device" in sig.parameters:
                     vllm_device = (os.environ.get("VLLM_DEVICE") or "cuda").strip() or "cuda"
@@ -755,6 +794,8 @@ async def lifespan(app: FastAPI):
                 try:
                     llm_sig = inspect.signature(LLM.__init__)
                     if "speculative_config" not in llm_sig.parameters:
+                        if "speculative_config" in llm_kwargs:
+                            print("[spec] LLM.__init__ does not accept speculative_config; dropping it for compatibility")
                         llm_kwargs.pop("speculative_config", None)
                     if "enable_chunked_prefill" not in llm_sig.parameters:
                         llm_kwargs.pop("enable_chunked_prefill", None)
@@ -766,6 +807,7 @@ async def lifespan(app: FastAPI):
                 if use_offline_llm:
                     print("BATCH_MODE=1: using vLLM LLM.generate(list_prompts) path")
                     app.state.llm = _build_llm()
+                    _try_print_effective_speculative_config(app.state.llm)
                     app.state.llm_lock = asyncio.Lock()
                     app.state.engine = None
                     app.state.engine_kind = "llm"
