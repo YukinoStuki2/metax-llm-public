@@ -13,16 +13,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM
 ENV MODEL_REVISION=master
 
-# Speculative Decoding（可选）：draft 模型
+# Speculative Decoding（可选）
 # - 默认不启用（ENABLE_SPECULATIVE_DECODING=0），避免因为不兼容/额外开销影响稳定性。
-# - 如需启用：
-#   1) 设置 SPEC_DRAFT_MODEL_ID（会在 build 阶段下载到 ./model/$SPEC_DRAFT_MODEL_ID）
-#   2) 运行时设置 ENABLE_SPECULATIVE_DECODING=1
+# - ngram 方法：不需要 draft 模型，基于 prompt 内 n-gram 模式预测，零额外成本
+# - 如需启用 ngram：运行时设置 ENABLE_SPECULATIVE_DECODING=1
 ENV ENABLE_SPECULATIVE_DECODING=0 \
-        SPEC_DRAFT_MODEL_ID='YukinoStuki/Qwen3-1.7B-Plus-LLM' \
-        SPEC_DRAFT_MODEL_REVISION=master \
-        SPEC_NUM_SPECULATIVE_TOKENS=8 \
-        SPEC_METHOD=draft_model
+        SPEC_METHOD=ngram \
+        SPEC_NUM_SPECULATIVE_TOKENS=6 \
+        SPEC_NGRAM_LOOKUP_MAX=8 \
+        SPEC_NGRAM_LOOKUP_MIN=1 \
+        SPEC_DRAFT_MODEL_ID= \
+        SPEC_DRAFT_MODEL_REVISION=master
 
 RUN python download_model.py \
         --model_name "$MODEL_ID" \
