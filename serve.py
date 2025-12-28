@@ -49,6 +49,19 @@ try:
 except Exception:
     HARD_CODE_MIN_HITS = 1
 HARD_CODE_MIN_HITS = max(1, min(5, HARD_CODE_MIN_HITS))
+
+LONG_ANSWER_ENABLE_DEFAULT = os.environ.get("LONG_ANSWER_ENABLE_DEFAULT", "1").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "y",
+    "on",
+)
+try:
+    LONG_ANSWER_MIN_HITS = int(os.environ.get("LONG_ANSWER_MIN_HITS", "1"))
+except Exception:
+    LONG_ANSWER_MIN_HITS = 1
+LONG_ANSWER_MIN_HITS = max(1, min(5, LONG_ANSWER_MIN_HITS))
 DISABLE_TOKEN_ROUTING = os.environ.get("DISABLE_TOKEN_ROUTING", "0").strip().lower() in (
     "1",
     "true",
@@ -154,24 +167,34 @@ def is_long_answer_question(user_prompt: str) -> bool:
     if not p:
         return False
 
-    # 经验上：bonus/plus 题干大量包含“xx算子…”，basic.txt 中几乎不出现“算子”。
-    # 这能很好地区分“需要长答案的算子类题”与“短概念题”。
-    keywords = [
-        "算子",
-        "spmv",
-        "convnets",
-        "im2col",
-        "gemm",
-        "tensor cores",
-        "triton",
-        "tilelang",
-    ]
+    keywords: list[str] = []
+    if LONG_ANSWER_ENABLE_DEFAULT:
+        # 经验上：bonus/plus 题干大量包含“xx算子…”，basic.txt 中几乎不出现“算子”。
+        # 这能很好地区分“需要长答案的算子类题”与“短概念题”。
+        keywords.extend(
+            [
+                "算子",
+                "spmv",
+                "convnets",
+                "im2col",
+                "gemm",
+                "tensor cores",
+                "triton",
+                "tilelang",
+            ]
+        )
 
     extra = os.environ.get("LONG_ANSWER_KEYWORDS", "")
     extra_words = [w.strip().lower() for w in extra.split(",") if w.strip()]
     keywords.extend(extra_words)
 
-    return any(k in p for k in keywords)
+    hits = 0
+    for k in keywords:
+        if k and k in p:
+            hits += 1
+            if hits >= LONG_ANSWER_MIN_HITS:
+                return True
+    return False
 
 
 def pick_max_new_tokens(user_prompt: str) -> int:

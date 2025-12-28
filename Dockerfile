@@ -10,7 +10,7 @@ COPY download_model.py .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 直接从 ModelScope 下载已融合的模型（线上运行环境不再执行本地融合）
-ENV MODEL_ID=YukinoStuki/Qwen3-1.7B-Plus-LLM
+ENV MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM
 ENV MODEL_REVISION=master
 
 # Speculative Decoding（可选）
@@ -45,6 +45,8 @@ ENV MAX_NEW_TOKENS_CODE=192
 ENV MAX_NEW_TOKENS_CODE_HARD=192
 ENV MAX_NEW_TOKENS_CODE_SOFT=64
 ENV HARD_CODE_MIN_HITS=1
+ENV LONG_ANSWER_ENABLE_DEFAULT=1
+ENV LONG_ANSWER_MIN_HITS=1
 
 # 解码稳定性：抑制复读（对小模型尤其重要）
 ENV REPETITION_PENALTY=1.05
