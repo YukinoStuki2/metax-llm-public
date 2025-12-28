@@ -77,10 +77,10 @@ def _normalize_text(s: str) -> str:
 
 
 def is_code_question(user_prompt: str) -> bool:
-    """启发式判断：题目是否更可能需要代码/实现类输出。
+    """启发式判断：题目是否明确要求“代码/伪代码/实现”。
 
-    plus 题里很多是 Triton/TileLang/CUDA/Kernel 相关，参考答案常给伪代码或代码片段。
-    对这种题把 max_new_tokens 适当提高能显著减少截断。
+    该判断要尽量“保守”，避免 basic 里大量短概念题因出现 CUDA 术语（如 threadIdx）
+    被误判为 code 题，导致分流开销/吞吐下降。
     """
 
     p = _normalize_text(user_prompt)
@@ -91,60 +91,17 @@ def is_code_question(user_prompt: str) -> bool:
     extra = os.environ.get("CODE_QUESTION_KEYWORDS", "")
     extra_words = [w.strip().lower() for w in extra.split(",") if w.strip()]
 
-    # 注意：这里必须“严格”，否则像 CUDA/卷积/矩阵乘法/共享内存 这种泛化词会把大量
-    # 非代码题误判为 code 题，导致 max_new_tokens 放大、输出变长发散，Rouge 反而下降。
-    # 因此只匹配题干里出现的强代码信号（函数/关键字/索引表达式/API/指令）。
+    # 注意：这里必须“严格”，否则会把大量非代码题误判为 code 题。
     keywords = [
         # 明确要求代码
         "代码",
         "伪代码",
         "核心代码",
         "代码片段",
-        # CUDA / C/C++ 代码信号（来自 plus 题常见题干/答案形式）
-        "__global__",
-        "__device__",
-        "__shared__",
-        "__syncthreads",
-        "atomicadd",
-        "threadidx",
-        "blockidx",
-        "blockdim",
-        "griddim",
-        "dim3",
-        "#pragma",
-        "unroll",
+        # 明确的代码形态信号
         "kernel<<<",
         "global void",
         "#include",
-        # CUDA runtime / 常见 API
-        "cudamemcpy",
-        "cudamemcpytosymbol",
-        "cudamalloc",
-        "cudamallocpitch",
-        "cudamemset",
-        "cudagetdeviceproperties",
-        "cudastream",
-        # 稀疏/卷积等题里常出现的“代码化符号名”
-        "csrrowptr",
-        "csrcolind",
-        "csrval",
-        "tile_width",
-        "tile_size",
-        "mask_width",
-        "max_mask_width",
-        "nds[",
-        "mds[",
-        "pvalue",
-        # Triton / TileLang
-        "@triton",
-        "tl.",
-        "triton",
-        "tilelang",
-        # 其他常见实现线索
-        "wmma",
-        "cublas",
-        "im2col",
-        "gemm",
         "import ",
         "def ",
     ]
@@ -162,16 +119,8 @@ def is_hard_code_question(user_prompt: str) -> bool:
 
     hard = [
         "kernel<<<",
-        "__global__",
         "global void",
-        "@triton",
-        "tl.",
-        "tilelang",
         "#include",
-        "cublas",
-        "wmma",
-        "im2col_kernel",
-        "csr_transpose_kernel",
     ]
 
     extra = os.environ.get("HARD_CODE_QUESTION_KEYWORDS", "")
@@ -181,9 +130,44 @@ def is_hard_code_question(user_prompt: str) -> bool:
     return any(h in p for h in hard)
 
 
+def is_long_answer_question(user_prompt: str) -> bool:
+    """启发式判断：题目参考答案通常较长（如 plus/bonus 里的“算子类”问答）。
+
+    目标：尽量把 bonus/plus 的长答案题拉到 MAX_NEW_TOKENS_CODE，
+    同时避免 basic 的短概念题被分流。
+    """
+
+    p = _normalize_text(user_prompt)
+    if not p:
+        return False
+
+    # 经验上：bonus/plus 题干大量包含“xx算子…”，basic.txt 中几乎不出现“算子”。
+    # 这能很好地区分“需要长答案的算子类题”与“短概念题”。
+    keywords = [
+        "算子",
+        "spmv",
+        "convnets",
+        "im2col",
+        "gemm",
+        "tensor cores",
+        "triton",
+        "tilelang",
+    ]
+
+    extra = os.environ.get("LONG_ANSWER_KEYWORDS", "")
+    extra_words = [w.strip().lower() for w in extra.split(",") if w.strip()]
+    keywords.extend(extra_words)
+
+    return any(k in p for k in keywords)
+
+
 def pick_max_new_tokens(user_prompt: str) -> int:
     if DISABLE_TOKEN_ROUTING:
         return MAX_NEW_TOKENS
+    # 优先：长答案题（bonus/plus 常见）
+    if is_long_answer_question(user_prompt):
+        return MAX_NEW_TOKENS_CODE
+    # 其次：明确代码题
     if is_hard_code_question(user_prompt):
         return MAX_NEW_TOKENS_CODE
     if is_code_question(user_prompt):
@@ -204,13 +188,17 @@ def _postprocess_answer(text: str, user_prompt: str) -> str:
     if not s:
         return ""
 
+    # 只对“短答模式”的题做后处理；长答案/分流题尽量保持原样以匹配参考答案。
+    if pick_max_new_tokens(user_prompt) != MAX_NEW_TOKENS:
+        return s
+
     if os.environ.get("OUTPUT_TRIM_EXAMPLES", "1") == "1" and (not is_code_question(user_prompt)):
         # 把“例如/比如/举例”后面的扩展内容裁掉（小模型常在此处胡写，导致 Rouge 掉分）
         m = re.search(r"(例如|比如|举例来说|举例)[:：]", s)
         if m:
             s = s[: m.start()].rstrip(" ，,。;；:\n")
 
-    # 控制输出句子数（默认 6），与系统提示对齐。
+    # 控制输出句子数（默认 6），与系统提示对齐（仅短答模式生效）。
     try:
         max_sent = int(os.environ.get("OUTPUT_MAX_SENTENCES", "6"))
     except Exception:
@@ -1205,18 +1193,26 @@ async def predict(req: PredictionRequest):
                     sampling_params_cache[mt] = sp
                 return sp
 
-            params_list = [get_sampling_params(mt) for mt in per_max_tokens]
             llm_lock = getattr(app.state, "llm_lock", None)
 
             async def _run_llm_batch() -> List[str]:
                 def _do_generate() -> List[str]:
-                    outs = llm.generate(prompt_texts, sampling_params=params_list, use_tqdm=False)
-                    results: List[str] = []
-                    for o in outs:
-                        if not getattr(o, "outputs", None):
-                            results.append("")
-                            continue
-                        results.append(strip_think(o.outputs[0].text))
+                    # 关键：不要给 vLLM 传 per-prompt SamplingParams 列表。
+                    # 这会显著削弱 batching（你观测到的 tokens/s 暴跌就是典型症状）。
+                    # 改为按 max_tokens 分桶，桶内用同一 SamplingParams 一次性 batch generate。
+                    buckets: dict[int, List[int]] = {}
+                    for i, mt in enumerate(per_max_tokens):
+                        buckets.setdefault(int(mt), []).append(i)
+
+                    results: List[str] = [""] * len(prompt_texts)
+                    for mt, idxs in buckets.items():
+                        group_prompts = [prompt_texts[i] for i in idxs]
+                        outs = llm.generate(group_prompts, sampling_params=get_sampling_params(mt), use_tqdm=False)
+                        for j, o in enumerate(outs):
+                            if not getattr(o, "outputs", None):
+                                results[idxs[j]] = ""
+                                continue
+                            results[idxs[j]] = strip_think(o.outputs[0].text)
                     return results
 
                 if llm_lock is None:
