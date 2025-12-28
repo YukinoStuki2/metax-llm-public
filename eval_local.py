@@ -3,6 +3,7 @@ import json
 import os
 import re
 import time
+import random
 from typing import List, Tuple, Dict, Any, Optional
 
 import requests
@@ -200,6 +201,18 @@ def main():
         default=0,
         help="print first N (q,pred) pairs and token stats for sanity check",
     )
+    ap.add_argument(
+        "--debug_random_n",
+        type=int,
+        default=0,
+        help="print N randomly sampled (q,pred) pairs after --debug_first_n (sampled from indices >= debug_first_n)",
+    )
+    ap.add_argument(
+        "--debug_random_seed",
+        type=int,
+        default=None,
+        help="random seed for --debug_random_n. If omitted, a fresh random seed will be used each run (and printed).",
+    )
     args = ap.parse_args()
 
     # 健康检查
@@ -249,6 +262,22 @@ def main():
         n_ok = 0
 
         with open(args.save_jsonl, "a", encoding="utf-8") as f:
+            debug_first_n = max(0, int(args.debug_first_n))
+            debug_random_n = max(0, int(args.debug_random_n))
+            random_pick: set[int] = set()
+            if debug_random_n > 0 and len(qa) > debug_first_n:
+                if args.debug_random_seed is None:
+                    # 默认：每次运行都随机，同时打印 seed 便于复现。
+                    seed = int.from_bytes(os.urandom(8), "little", signed=False)
+                    print(f"[INFO] debug_random_seed(auto)={seed}")
+                else:
+                    seed = int(args.debug_random_seed)
+                rng = random.Random(seed)
+                # 只从 idx>=debug_first_n 的题中抽，避免与 first_n 重叠
+                candidates = list(range(debug_first_n, len(qa)))
+                k = min(debug_random_n, len(candidates))
+                random_pick = set(rng.sample(candidates, k=k))
+
             if args.batch:
                 qs = [q for (q, _ref) in qa]
                 t0 = time.perf_counter()
@@ -269,7 +298,6 @@ def main():
                     preds = preds[: len(qa)]
 
                 per_item_latency = (dt_total / len(qa)) if len(qa) > 0 else 0.0
-                debug_n = max(0, int(args.debug_first_n))
                 for i, ((q, ref), pred) in enumerate(tqdm(list(zip(qa, preds)), desc=f"Eval-{name}-batch")):
                     ok = ok_all and (not (isinstance(pred, str) and pred.startswith("[ERROR]")))
 
@@ -287,12 +315,21 @@ def main():
                     otok_raw = count_tokens(tokenizer, pred)
                     otok_clean = count_tokens(tokenizer, pred_clean)
 
-                    if debug_n > 0 and i < debug_n:
+                    if (debug_first_n > 0 and i < debug_first_n) or (i in random_pick):
                         p_preview = (pred or "").replace("\n", "\\n")
                         if len(p_preview) > 240:
                             p_preview = p_preview[:240] + "..."
                         print(f"\n[DEBUG] {name}[{i}] q={q}")
                         print(f"[DEBUG] {name}[{i}] pred_preview={p_preview}")
+                        if ok:
+                            if args.strip_q_suffix:
+                                print(
+                                    f"[DEBUG] {name}[{i}] rougeL_f1_raw={score_raw:.4f}, rougeL_f1_clean={float(score_clean or 0.0):.4f}"
+                                )
+                            else:
+                                print(f"[DEBUG] {name}[{i}] rougeL_f1_raw={score_raw:.4f}")
+                        else:
+                            print(f"[DEBUG] {name}[{i}] rougeL_f1_raw=0.0000 (request failed)")
                         if args.model_dir_for_tokenizer:
                             print(f"[DEBUG] {name}[{i}] tokens(prompt/question)={ptok}, tokens(output)={otok_raw}")
 
@@ -347,13 +384,21 @@ def main():
                     otok_raw = count_tokens(tokenizer, pred)
                     otok_clean = count_tokens(tokenizer, pred_clean)
 
-                    debug_n = max(0, int(args.debug_first_n))
-                    if debug_n > 0 and i < debug_n:
+                    if (debug_first_n > 0 and i < debug_first_n) or (i in random_pick):
                         p_preview = (pred or "").replace("\n", "\\n")
                         if len(p_preview) > 240:
                             p_preview = p_preview[:240] + "..."
                         print(f"\n[DEBUG] {name}[{i}] q={q}")
                         print(f"[DEBUG] {name}[{i}] pred_preview={p_preview}")
+                        if ok:
+                            if args.strip_q_suffix:
+                                print(
+                                    f"[DEBUG] {name}[{i}] rougeL_f1_raw={score_raw:.4f}, rougeL_f1_clean={float(score_clean or 0.0):.4f}"
+                                )
+                            else:
+                                print(f"[DEBUG] {name}[{i}] rougeL_f1_raw={score_raw:.4f}")
+                        else:
+                            print(f"[DEBUG] {name}[{i}] rougeL_f1_raw=0.0000 (request failed)")
                         if args.model_dir_for_tokenizer:
                             print(f"[DEBUG] {name}[{i}] tokens(prompt/question)={ptok}, tokens(output)={otok_raw}")
 
