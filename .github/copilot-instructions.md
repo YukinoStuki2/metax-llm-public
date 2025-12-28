@@ -44,6 +44,20 @@
 - Do not add heavy CI; this repo’s primary automation is GitHub→Gitee sync.
 - `requirements.txt` 只包含 serve.py 与 download_model.py 所需依赖，非必要不要改动或添加评测无关的库。
 
+## 运行参数对齐（重要，后续维护规则）
+
+- 参数来源分工：
+	- `Dockerfile`：评测机使用的默认环境变量（必须与调优后的参数一致）。
+	- `run_model.sh`：本地/云主机复现评测流程的启动脚本；**不应强制覆盖外部传入的环境变量**，而是“有就用，没有才用默认”。
+	- `env_force.sh`：**强制导入**一整套默认参数（用于清理上一次测试遗留变量）；该脚本必须用 `source ./env_force.sh` 执行。
+
+- 修改约束：
+	- 每次改环境变量/推理参数（例如 `MODEL_ID`、`MAX_NEW_TOKENS`、`MAX_MODEL_LEN`、vLLM 相关开关等），或修改 `run_model.sh` / `Dockerfile` / `env_force.sh` 任一文件时，必须同步检查并对齐另外两份文件的对应参数，避免“本地好/线上坏”或“脚本不一致”。
+
+- 推荐用法：
+	- 想确保本次运行是“干净参数”：`source ./env_force.sh && ./run_model.sh`
+	- 想临时覆盖某个参数：先 `source ./env_force.sh`，再在运行前 `export MODEL_ID=...`（或直接 `MODEL_ID=... ./run_model.sh`）。
+
 ## Command preflight (MUST DO BEFORE RUNNING COMMANDS)
 
 - `sudo` commands:

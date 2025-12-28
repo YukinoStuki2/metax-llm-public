@@ -16,8 +16,9 @@ say() { echo "[run_model] $*"; }
 # ======================
 export OMP_NUM_THREADS="4"
 
-export MODEL_ID="YukinoStuki/Qwen3-4B-Plus-LLM"
-export MODEL_REVISION="master"
+: "${MODEL_ID:=YukinoStuki/Qwen3-4B-Plus-LLM}"
+: "${MODEL_REVISION:=master}"
+export MODEL_ID MODEL_REVISION
 
 # ======================
 # Speculative Decoding（可选）
@@ -40,42 +41,56 @@ export ENABLE_SPECULATIVE_DECODING SPEC_DRAFT_MODEL_ID SPEC_DRAFT_MODEL_REVISION
 export MODELSCOPE_API_TOKEN
 
 # Dockerfile 下载到 ./model，并设置运行时 MODEL_DIR=./model/$MODEL_ID
-export MODEL_DIR="./model/$MODEL_ID"
+: "${MODEL_DIR:=./model/$MODEL_ID}"
+export MODEL_DIR
 
 # 强烈建议优先使用 vLLM（与 Dockerfile 一致）
-export USE_VLLM="true"
-export MAX_NEW_TOKENS="32"
-export MAX_NEW_TOKENS_CODE="192"
+: "${USE_VLLM:=true}"
+export USE_VLLM
+: "${MAX_NEW_TOKENS:=32}"
+: "${MAX_NEW_TOKENS_CODE:=192}"
+export MAX_NEW_TOKENS MAX_NEW_TOKENS_CODE
+
+# 解码稳定性：抑制复读（允许外部覆盖）
+: "${REPETITION_PENALTY:=1.05}"
+: "${FREQUENCY_PENALTY:=0.1}"
+export REPETITION_PENALTY FREQUENCY_PENALTY
 
 # serve.py 运行时参数（与 Dockerfile 保持一致）
-export BATCH_MODE="1"
-export BATCH_CONCURRENCY="512"
-export TEMPERATURE="0.0"
-export TOP_P="1.0"
-export TOP_K="1"
-export GPU_MEMORY_UTILIZATION="0.97"
-export DTYPE="float16"
-export TRANSFORMERS_DTYPE="float16"
+: "${BATCH_MODE:=1}"
+: "${BATCH_CONCURRENCY:=512}"
+: "${TEMPERATURE:=0.0}"
+: "${TOP_P:=1.0}"
+: "${TOP_K:=1}"
+: "${GPU_MEMORY_UTILIZATION:=0.97}"
+: "${DTYPE:=float16}"
+: "${TRANSFORMERS_DTYPE:=float16}"
+export BATCH_MODE BATCH_CONCURRENCY TEMPERATURE TOP_P TOP_K GPU_MEMORY_UTILIZATION DTYPE TRANSFORMERS_DTYPE
 
 # vLLM 吞吐/量化（AWQ）
-export ENABLE_PREFIX_CACHING="1"
-export VLLM_QUANTIZATION=""
-export VLLM_LOAD_FORMAT="auto"
+: "${ENABLE_PREFIX_CACHING:=1}"
+: "${VLLM_QUANTIZATION:=}"
+: "${VLLM_LOAD_FORMAT:=auto}"
+export ENABLE_PREFIX_CACHING VLLM_QUANTIZATION VLLM_LOAD_FORMAT
 
 # MetaX 上如果强制 enforce_eager 会禁用 cudagraph，吞吐可能下降。
 # 默认不强制 eager；若遇到平台兼容问题再设为 1。
-export VLLM_ENFORCE_EAGER="0"
+: "${VLLM_ENFORCE_EAGER:=0}"
+export VLLM_ENFORCE_EAGER
 
 # 可选：不设置表示交给 vLLM 自行决定
-export VLLM_MAX_NUM_SEQS=""
-export VLLM_MAX_NUM_BATCHED_TOKENS=""
-export VLLM_COMPILATION_CONFIG=""
+: "${VLLM_MAX_NUM_SEQS:=}"
+: "${VLLM_MAX_NUM_BATCHED_TOKENS:=}"
+: "${VLLM_COMPILATION_CONFIG:=}"
+export VLLM_MAX_NUM_SEQS VLLM_MAX_NUM_BATCHED_TOKENS VLLM_COMPILATION_CONFIG
 
 # Qwen3 系列模型 config 里可能带超长上下文（如 262144），会导致 KV cache 按超长分配，并发很低。
 # 评测题通常不需要这么长，上限过大会拖慢吞吐；这里默认限制到一个更实际的值。
-export MAX_MODEL_LEN="2048"
+: "${MAX_MODEL_LEN:=2048}"
+export MAX_MODEL_LEN
 
-export DEBUG_NET="0"
+: "${DEBUG_NET:=0}"
+export DEBUG_NET
 
 # ======================
 # 2) Python 环境 + 安装依赖

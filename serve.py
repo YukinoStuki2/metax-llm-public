@@ -28,7 +28,7 @@ MODEL_DIR = os.environ.get(
 # 生成参数（评测要求）
 SYSTEM_PROMPT = (
     "你是评测答题模型。目标：ROUGE-L高分且尽量少输出token。\n"
-    "只输出答案正文，不要任何“思考过程/推理/分析/步骤/解释/客套”，不要出现“思考完成”等字样。\n\n"
+    "只输出答案正文，切中要点，列出个别关键术语或结论，不要任何“思考过程/推理/分析/步骤/解释/客套”，不要出现“思考完成”等字样。\n\n"
     "写法要求：\n"
     "1) 尽量复用教材/标准表述，少改写，保持常见措辞与词序。\n"
     "2) 用3-6个短句/短语覆盖关键点（定义/参数/公式/步骤/关键术语），不要长段落。\n"
@@ -55,6 +55,12 @@ BATCH_CONCURRENCY = int(os.environ.get("BATCH_CONCURRENCY", "320"))
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.0"))
 TOP_P = float(os.environ.get("TOP_P", "1.0"))
 TOP_K = int(os.environ.get("TOP_K", "1"))
+
+# 重复惩罚：用于抑制 1.7B 等小模型在贪心解码时的“循环复读”。
+# - repetition_penalty > 1 会降低已出现 token 的再次生成概率。
+# - frequency_penalty > 0 会按出现频次惩罚重复。
+REPETITION_PENALTY = float(os.environ.get("REPETITION_PENALTY", "1.05"))
+FREQUENCY_PENALTY = float(os.environ.get("FREQUENCY_PENALTY", "0.1"))
 
 
 def _normalize_text(s: str) -> str:
@@ -311,8 +317,30 @@ def _has_c_compiler() -> bool:
     return any(shutil.which(x) for x in ("cc", "gcc", "clang"))
 
 def strip_think(text: str) -> str:
-    """去掉可能的 <think>...</think>，避免输出过长。"""
-    return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+    """去掉可能的 <think>...</think>，避免输出过长。
+
+    注意：部分模型会把“最终答案”也放在 <think> 中。若直接整体移除会导致返回空串，
+    Rouge 分数会显著下降。因此这里做一个安全回退：
+    - 优先移除整个 think block；
+    - 若结果为空，则尝试提取 think 内文本；
+    - 若仍为空，则仅去掉 <think> 标签本身。
+    """
+
+    original = (text or "").strip()
+    if not original:
+        return ""
+
+    cleaned = re.sub(r"<think>.*?</think>", "", original, flags=re.S | re.IGNORECASE).strip()
+    if cleaned:
+        return cleaned
+
+    m = re.search(r"<think>(.*?)</think>", original, flags=re.S | re.IGNORECASE)
+    if m:
+        inner = (m.group(1) or "").strip()
+        if inner:
+            return inner
+
+    return re.sub(r"</?think>", "", original, flags=re.IGNORECASE).strip()
 
 
 def _maybe_parse_estimated_max_len(err: Exception) -> Optional[int]:
@@ -938,7 +966,8 @@ async def lifespan(app: FastAPI):
                         top_p=1.0,
                         top_k=TOP_K,
                         max_tokens=8,
-                        frequency_penalty=0.0,
+                        frequency_penalty=FREQUENCY_PENALTY,
+                        repetition_penalty=REPETITION_PENALTY,
                     )
                     if getattr(app.state, "llm", None) is not None:
                         llm = app.state.llm
@@ -1065,7 +1094,8 @@ async def predict(req: PredictionRequest):
                         top_p=1.0,
                         top_k=TOP_K,
                         max_tokens=mt,
-                        frequency_penalty=0.0,
+                        frequency_penalty=FREQUENCY_PENALTY,
+                        repetition_penalty=REPETITION_PENALTY,
                     )
                     sampling_params_cache[mt] = sp
                 return sp
@@ -1109,7 +1139,8 @@ async def predict(req: PredictionRequest):
                     top_p=1.0,
                     top_k=TOP_K,
                     max_tokens=mt,
-                    frequency_penalty=0.0,
+                    frequency_penalty=FREQUENCY_PENALTY,
+                    repetition_penalty=REPETITION_PENALTY,
                 )
                 sampling_params_cache[mt] = sp
             return sp
@@ -1160,6 +1191,7 @@ async def predict(req: PredictionRequest):
                 temperature=0.0,
                 top_p=1.0,
                 top_k=TOP_K,
+                repetition_penalty=float(REPETITION_PENALTY),
             )
             out = mdl.generate(**inputs, **gen_kwargs)
             text = tok.decode(out[0], skip_special_tokens=True)
@@ -1178,6 +1210,7 @@ async def predict(req: PredictionRequest):
         temperature=0.0,
         top_p=1.0,
         top_k=TOP_K,
+        repetition_penalty=float(REPETITION_PENALTY),
     )
 
     out = mdl.generate(**inputs, **gen_kwargs)
