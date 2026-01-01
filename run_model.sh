@@ -16,7 +16,7 @@ say() { echo "[run_model] $*"; }
 # ======================
 export OMP_NUM_THREADS="4"
 
-: "${MODEL_ID:=YukinoStuki/Qwen3-4B-Plus-LLM}"
+: "${MODEL_ID:=YukinoStuki/Qwen3-0.6B-Plus-LLM}"
 : "${MODEL_REVISION:=master}"
 export MODEL_ID MODEL_REVISION
 
@@ -49,9 +49,9 @@ export MODEL_DIR
 : "${DISABLE_TOKEN_ROUTING:=0}"
 export USE_VLLM DISABLE_TOKEN_ROUTING
 : "${MAX_NEW_TOKENS:=32}"
-: "${MAX_NEW_TOKENS_CODE:=192}"
-: "${MAX_NEW_TOKENS_CODE_HARD:=$MAX_NEW_TOKENS_CODE}"
-: "${MAX_NEW_TOKENS_CODE_SOFT:=64}"
+: "${MAX_NEW_TOKENS_CODE:=96}"
+: "${MAX_NEW_TOKENS_CODE_HARD:=192}"
+: "${MAX_NEW_TOKENS_CODE_SOFT:=48}"
 : "${HARD_CODE_MIN_HITS:=1}"
 export MAX_NEW_TOKENS MAX_NEW_TOKENS_CODE MAX_NEW_TOKENS_CODE_HARD MAX_NEW_TOKENS_CODE_SOFT
 export HARD_CODE_MIN_HITS
@@ -68,6 +68,11 @@ export REPETITION_PENALTY FREQUENCY_PENALTY
 : "${OUTPUT_TRIM_EXAMPLES:=1}"
 : "${OUTPUT_MAX_SENTENCES:=6}"
 export OUTPUT_TRIM_EXAMPLES OUTPUT_MAX_SENTENCES
+
+# vLLM 停止条件（与 Dockerfile 对齐；允许外部覆盖）
+: "${STOP_STRINGS:=<|im_end|>,<|endoftext|>}"
+: "${STOP_ON_DOUBLE_NEWLINE:=0}"
+export STOP_STRINGS STOP_ON_DOUBLE_NEWLINE
 
 # serve.py 运行时参数（与 Dockerfile 保持一致）
 : "${BATCH_MODE:=1}"

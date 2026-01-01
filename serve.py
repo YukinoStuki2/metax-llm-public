@@ -71,6 +71,56 @@ DISABLE_TOKEN_ROUTING = os.environ.get("DISABLE_TOKEN_ROUTING", "0").strip().low
 )
 WARMUP_PROMPT = "你好"
 
+# 生成提前停止（可选）：减少无效尾巴 token，提高吞吐。
+# - STOP_STRINGS: 逗号分隔的 stop 字符串列表；默认包含 Qwen 常见的结束标记。
+# - STOP_ON_DOUBLE_NEWLINE: 是否把 "\n\n" 作为 stop（对部分模型可显著缩短输出，但也可能过早截断）。
+STOP_STRINGS = [s.strip() for s in (os.environ.get("STOP_STRINGS") or "").split(",") if s.strip()]
+if not STOP_STRINGS:
+    STOP_STRINGS = ["<|im_end|>", "<|endoftext|>"]
+STOP_ON_DOUBLE_NEWLINE = os.environ.get("STOP_ON_DOUBLE_NEWLINE", "0").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "y",
+    "on",
+)
+if STOP_ON_DOUBLE_NEWLINE:
+    STOP_STRINGS = ["\n\n"] + STOP_STRINGS
+
+
+def _build_stop_token_ids(tokenizer: Any) -> List[int]:
+    ids: list[int] = []
+    if tokenizer is None:
+        return ids
+    try:
+        eos = getattr(tokenizer, "eos_token_id", None)
+        if isinstance(eos, int) and eos >= 0:
+            ids.append(int(eos))
+    except Exception:
+        pass
+    for tok in ("<|im_end|>", "<|endoftext|>"):
+        try:
+            tid = tokenizer.convert_tokens_to_ids(tok)
+            if isinstance(tid, int) and tid >= 0 and tid not in ids:
+                ids.append(int(tid))
+        except Exception:
+            continue
+    return ids
+
+
+def _build_sampling_params(tokenizer: Any, max_tokens: int) -> "SamplingParams":
+    stop_token_ids = _build_stop_token_ids(tokenizer)
+    return SamplingParams(
+        temperature=float(TEMPERATURE),
+        top_p=float(TOP_P),
+        top_k=int(TOP_K),
+        max_tokens=int(max_tokens),
+        frequency_penalty=float(FREQUENCY_PENALTY),
+        repetition_penalty=float(REPETITION_PENALTY),
+        stop=list(STOP_STRINGS) if STOP_STRINGS else None,
+        stop_token_ids=stop_token_ids if stop_token_ids else None,
+    )
+
 # Batch 模式：GET / 返回 {"status":"batch"} 后，评测机会一次性把所有问题推到 /predict
 # 注意：评测/容器环境可能会在不同位置注入环境变量；因此这里不要在 import 时固化，
 # 统一通过函数动态读取，避免出现“明明开了 batch 但 health 仍返回 ok”的情况。
@@ -1090,19 +1140,15 @@ async def lifespan(app: FastAPI):
 
             async def _warmup_vllm():
                 try:
-                    sp = SamplingParams(
-                        temperature=0.0,
-                        top_p=1.0,
-                        top_k=TOP_K,
-                        max_tokens=8,
-                        frequency_penalty=FREQUENCY_PENALTY,
-                        repetition_penalty=REPETITION_PENALTY,
-                    )
+                    # 预热时也用 chat template，才能真正预热 system prompt 前缀缓存。
+                    tok = getattr(app.state, "tokenizer", None)
+                    warm_text = format_as_chat(tok, WARMUP_PROMPT)
+                    sp = _build_sampling_params(tok, max_tokens=8)
                     if getattr(app.state, "llm", None) is not None:
                         llm = app.state.llm
 
                         def _do_warmup():
-                            _ = llm.generate([WARMUP_PROMPT], sampling_params=sp, use_tqdm=False)
+                            _ = llm.generate([warm_text], sampling_params=sp, use_tqdm=False)
 
                         # 同步接口：放到线程池里预热
                         await asyncio.to_thread(_do_warmup)
@@ -1111,11 +1157,11 @@ async def lifespan(app: FastAPI):
                         if engine_kind == "async_v1":
                             gen = app.state.engine.generate(
                                 request_id="warmup",
-                                prompt=WARMUP_PROMPT,
+                                prompt=warm_text,
                                 sampling_params=sp,
                             )
                         else:
-                            gen = app.state.engine.generate(WARMUP_PROMPT, sp, request_id="warmup")
+                            gen = app.state.engine.generate(warm_text, sp, request_id="warmup")
                         async for _ in gen:
                             pass
                     print("vLLM warmup done")
@@ -1226,14 +1272,7 @@ async def predict(req: PredictionRequest):
                 mt = int(max_tokens)
                 sp = sampling_params_cache.get(mt)
                 if sp is None:
-                    sp = SamplingParams(
-                        temperature=0.0,
-                        top_p=1.0,
-                        top_k=TOP_K,
-                        max_tokens=mt,
-                        frequency_penalty=FREQUENCY_PENALTY,
-                        repetition_penalty=REPETITION_PENALTY,
-                    )
+                    sp = _build_sampling_params(tokenizer, mt)
                     sampling_params_cache[mt] = sp
                 return sp
 
@@ -1279,14 +1318,7 @@ async def predict(req: PredictionRequest):
             mt = int(max_tokens)
             sp = sampling_params_cache.get(mt)
             if sp is None:
-                sp = SamplingParams(
-                    temperature=0.0,
-                    top_p=1.0,
-                    top_k=TOP_K,
-                    max_tokens=mt,
-                    frequency_penalty=FREQUENCY_PENALTY,
-                    repetition_penalty=REPETITION_PENALTY,
-                )
+                sp = _build_sampling_params(tokenizer, mt)
                 sampling_params_cache[mt] = sp
             return sp
 
@@ -1331,6 +1363,7 @@ async def predict(req: PredictionRequest):
         outputs: List[str] = []
         for pt, mt in zip(prompt_texts, per_max_tokens):
             inputs = tok(pt, return_tensors="pt").to(mdl.device)
+            eos_ids = _build_stop_token_ids(tok)
             gen_kwargs = dict(
                 max_new_tokens=int(mt),
                 do_sample=False,
@@ -1339,6 +1372,8 @@ async def predict(req: PredictionRequest):
                 top_k=TOP_K,
                 repetition_penalty=float(REPETITION_PENALTY),
             )
+            if eos_ids:
+                gen_kwargs["eos_token_id"] = eos_ids
             out = mdl.generate(**inputs, **gen_kwargs)
             text = tok.decode(out[0], skip_special_tokens=True)
             if text.startswith(pt):
@@ -1349,6 +1384,7 @@ async def predict(req: PredictionRequest):
     prompt_text = prompt_texts[0]
     inputs = tok(prompt_text, return_tensors="pt").to(mdl.device)
     mt = per_max_tokens[0]
+    eos_ids = _build_stop_token_ids(tok)
 
     gen_kwargs = dict(
         max_new_tokens=int(mt),
@@ -1358,6 +1394,8 @@ async def predict(req: PredictionRequest):
         top_k=TOP_K,
         repetition_penalty=float(REPETITION_PENALTY),
     )
+    if eos_ids:
+        gen_kwargs["eos_token_id"] = eos_ids
 
     out = mdl.generate(**inputs, **gen_kwargs)
     text = tok.decode(out[0], skip_special_tokens=True)

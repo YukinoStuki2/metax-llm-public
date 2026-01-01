@@ -24,7 +24,7 @@ say() { echo "[env_force] $*"; }
 export OMP_NUM_THREADS="4"
 
 # 模型下载/加载
-export MODEL_ID="YukinoStuki/Qwen3-1.7B-Plus-LLM"
+export MODEL_ID="YukinoStuki/Qwen3-0.6B-Plus-LLM"
 export MODEL_REVISION="master"
 export MODEL_DIR="./model/$MODEL_ID"
 
@@ -46,9 +46,9 @@ export MODELSCOPE_API_TOKEN
 export USE_VLLM="true"
 export DISABLE_TOKEN_ROUTING="0"
 export MAX_NEW_TOKENS="32"
-export MAX_NEW_TOKENS_CODE="192"
+export MAX_NEW_TOKENS_CODE="96"
 export MAX_NEW_TOKENS_CODE_HARD="192"
-export MAX_NEW_TOKENS_CODE_SOFT="64"
+export MAX_NEW_TOKENS_CODE_SOFT="48"
 export HARD_CODE_MIN_HITS="1"
 export LONG_ANSWER_ENABLE_DEFAULT="1"
 export LONG_ANSWER_MIN_HITS="1"
@@ -60,6 +60,10 @@ export FREQUENCY_PENALTY="0.1"
 # 输出后处理：非代码题裁剪示例段、限制句子数（提高 Rouge 稳定性）
 export OUTPUT_TRIM_EXAMPLES="1"
 export OUTPUT_MAX_SENTENCES="6"
+
+# vLLM 停止条件（与 Dockerfile 对齐）
+export STOP_STRINGS="<|im_end|>,<|endoftext|>"
+export STOP_ON_DOUBLE_NEWLINE="0"
 
 export BATCH_MODE="1"
 export BATCH_CONCURRENCY="512"

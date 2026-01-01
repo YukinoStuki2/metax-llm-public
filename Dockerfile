@@ -10,7 +10,7 @@ COPY download_model.py .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 直接从 ModelScope 下载已融合的模型（线上运行环境不再执行本地融合）
-ENV MODEL_ID=YukinoStuki/Qwen3-1.7B-Plus-LLM
+ENV MODEL_ID=YukinoStuki/Qwen3-0.6B-Plus-LLM
 ENV MODEL_REVISION=master
 
 # Speculative Decoding（可选）
@@ -54,6 +54,10 @@ ENV FREQUENCY_PENALTY=0.1
 # 输出后处理：非代码题裁剪示例段、限制句子数（提高 Rouge 稳定性）
 ENV OUTPUT_TRIM_EXAMPLES=1
 ENV OUTPUT_MAX_SENTENCES=6
+
+# vLLM 停止条件（减少无效尾巴 token；可在运行时覆盖）
+ENV STOP_STRINGS="<|im_end|>,<|endoftext|>" \
+        STOP_ON_DOUBLE_NEWLINE=0
 
 # serve.py 运行时参数（显式写出默认值，避免环境不一致）
 ENV BATCH_MODE=1 \
