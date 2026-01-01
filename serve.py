@@ -79,7 +79,13 @@ try:
     WARMUP_NUM_SAMPLES = int(os.environ.get("WARMUP_NUM_SAMPLES", "64"))
 except Exception:
     WARMUP_NUM_SAMPLES = 64
-WARMUP_NUM_SAMPLES = max(0, min(512, int(WARMUP_NUM_SAMPLES)))
+try:
+    _WARMUP_NUM_SAMPLES_CAP = int(os.environ.get("WARMUP_NUM_SAMPLES_CAP", "512"))
+except Exception:
+    _WARMUP_NUM_SAMPLES_CAP = 512
+# 防御性上限：避免误配置导致 health 阶段极慢/卡死。
+_WARMUP_NUM_SAMPLES_CAP = max(0, min(8192, int(_WARMUP_NUM_SAMPLES_CAP)))
+WARMUP_NUM_SAMPLES = max(0, min(_WARMUP_NUM_SAMPLES_CAP, int(WARMUP_NUM_SAMPLES)))
 try:
     WARMUP_REPEAT = int(os.environ.get("WARMUP_REPEAT", "1"))
 except Exception:
@@ -908,6 +914,7 @@ async def lifespan(app: FastAPI):
         "WARMUP:",
         f"data_path={WARMUP_DATA_PATH!r}",
         f"num_samples={WARMUP_NUM_SAMPLES}",
+        f"num_samples_cap={_WARMUP_NUM_SAMPLES_CAP}",
         f"repeat={WARMUP_REPEAT}",
         f"data_exists={os.path.isfile(os.path.abspath(WARMUP_DATA_PATH)) if WARMUP_DATA_PATH else False}",
     )

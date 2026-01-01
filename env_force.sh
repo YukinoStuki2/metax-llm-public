@@ -77,6 +77,7 @@ export TRANSFORMERS_DTYPE="float16"
 # vLLM 吞吐/量化
 export ENABLE_PREFIX_CACHING="1"
 export VLLM_QUANTIZATION=""
+export VLLM_KV_CACHE_DTYPE="fp8"
 export VLLM_LOAD_FORMAT="auto"
 export VLLM_ENFORCE_EAGER="0"
 export VLLM_MAX_NUM_SEQS="1024"
@@ -88,8 +89,9 @@ export MAX_MODEL_LEN="1024"
 
 # 可选：用本地数据集抽样预热（默认关闭）
 export WARMUP_DATA_PATH="./data.jsonl"
-export WARMUP_NUM_SAMPLES="64"
-export WARMUP_REPEAT="1"
+export WARMUP_NUM_SAMPLES="7000"
+export WARMUP_NUM_SAMPLES_CAP="7000"
+export WARMUP_REPEAT="2"
 
 export DEBUG_NET="0"
 
