@@ -983,6 +983,14 @@ async def lifespan(app: FastAPI):
                     engine_kwargs["load_format"] = vllm_load_format
                     print("Using VLLM_LOAD_FORMAT =", vllm_load_format)
 
+                # 可选：KV cache dtype（如果当前 vLLM 构建支持）。
+                # 目的：在不改变 max_model_len 的情况下，可能增大 KV cache 容量/并发。
+                # 例如：VLLM_KV_CACHE_DTYPE=fp16/bf16/fp8_*（具体取值取决于 vLLM/平台插件支持）。
+                kv_cache_dtype = (os.environ.get("VLLM_KV_CACHE_DTYPE") or os.environ.get("KV_CACHE_DTYPE") or "").strip()
+                if kv_cache_dtype and "kv_cache_dtype" in sig.parameters:
+                    engine_kwargs["kv_cache_dtype"] = kv_cache_dtype
+                    print("Using VLLM_KV_CACHE_DTYPE =", kv_cache_dtype)
+
                 # 吞吐相关开关（仅在当前 vLLM 构建支持时才设置）
                 # 前缀缓存通常是安全的，且能显著加速“共享前缀”的大 batch（如 system prompt）。
                 if "enable_prefix_caching" in sig.parameters:
