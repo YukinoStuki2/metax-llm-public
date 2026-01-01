@@ -23,7 +23,7 @@ jobs:
         run: |
           set -eux
           # 白名单：仅保留这些顶层文件；其余全部删除（.git 本身除外）。
-          keep=(.git .gitignore .dockerignore Dockerfile README.md download_model.py requirements.txt serve.py)
+          keep=(.git .gitignore .dockerignore Dockerfile README.md download_model.py requirements.txt serve.py data.jsonl)
 
           shopt -s dotglob
           for path in ./*; do

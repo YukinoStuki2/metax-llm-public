@@ -79,12 +79,17 @@ export ENABLE_PREFIX_CACHING="1"
 export VLLM_QUANTIZATION=""
 export VLLM_LOAD_FORMAT="auto"
 export VLLM_ENFORCE_EAGER="0"
-export VLLM_MAX_NUM_SEQS=""
+export VLLM_MAX_NUM_SEQS="1024"
 export VLLM_MAX_NUM_BATCHED_TOKENS=""
 export VLLM_COMPILATION_CONFIG=""
 
 # 限制最大上下文，避免按超长 config 分配 KV cache
-export MAX_MODEL_LEN="2048"
+export MAX_MODEL_LEN="1024"
+
+# 可选：用本地数据集抽样预热（默认关闭）
+export WARMUP_DATA_PATH="./data.jsonl"
+export WARMUP_NUM_SAMPLES="64"
+export WARMUP_REPEAT="1"
 
 export DEBUG_NET="0"
 

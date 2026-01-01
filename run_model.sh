@@ -97,15 +97,21 @@ export ENABLE_PREFIX_CACHING VLLM_QUANTIZATION VLLM_LOAD_FORMAT
 export VLLM_ENFORCE_EAGER
 
 # 可选：不设置表示交给 vLLM 自行决定
-: "${VLLM_MAX_NUM_SEQS:=}"
+: "${VLLM_MAX_NUM_SEQS:=1024}"
 : "${VLLM_MAX_NUM_BATCHED_TOKENS:=}"
 : "${VLLM_COMPILATION_CONFIG:=}"
 export VLLM_MAX_NUM_SEQS VLLM_MAX_NUM_BATCHED_TOKENS VLLM_COMPILATION_CONFIG
 
 # Qwen3 系列模型 config 里可能带超长上下文（如 262144），会导致 KV cache 按超长分配，并发很低。
 # 评测题通常不需要这么长，上限过大会拖慢吞吐；这里默认限制到一个更实际的值。
-: "${MAX_MODEL_LEN:=2048}"
+: "${MAX_MODEL_LEN:=1024}"
 export MAX_MODEL_LEN
+
+# 可选：用本地数据集抽样预热（默认关闭）
+: "${WARMUP_DATA_PATH:=./data.jsonl}"
+: "${WARMUP_NUM_SAMPLES:=64}"
+: "${WARMUP_REPEAT:=1}"
+export WARMUP_DATA_PATH WARMUP_NUM_SAMPLES WARMUP_REPEAT
 
 : "${DEBUG_NET:=0}"
 export DEBUG_NET

@@ -71,6 +71,92 @@ DISABLE_TOKEN_ROUTING = os.environ.get("DISABLE_TOKEN_ROUTING", "0").strip().low
 )
 WARMUP_PROMPT = "你好"
 
+# 可选：使用本地数据集抽样预热（默认关闭，避免 health 阶段超时）。
+# 注意：评测机拉取的仓库可能不包含数据文件（例如被同步脚本白名单裁剪），因此不要依赖该功能。
+WARMUP_DATA_PATH = (os.environ.get("WARMUP_DATA_PATH") or "./data.jsonl").strip()
+try:
+    WARMUP_NUM_SAMPLES = int(os.environ.get("WARMUP_NUM_SAMPLES", "64"))
+except Exception:
+    WARMUP_NUM_SAMPLES = 64
+WARMUP_NUM_SAMPLES = max(0, min(512, int(WARMUP_NUM_SAMPLES)))
+try:
+    WARMUP_REPEAT = int(os.environ.get("WARMUP_REPEAT", "1"))
+except Exception:
+    WARMUP_REPEAT = 1
+WARMUP_REPEAT = max(1, min(8, int(WARMUP_REPEAT)))
+
+
+def _load_warmup_user_prompts(path: str, limit: int) -> List[str]:
+    """从本地数据集中抽取 user prompt（用于预热）。
+
+    支持常见格式：
+    - jsonl：每行一个 JSON 对象，字段可能为 messages/instruction/prompt/question。
+    - json ：list[dict] 或 dict{data:[...]}
+    """
+
+    if (not path) or limit <= 0:
+        return []
+
+    abs_path = os.path.abspath(path)
+    if not os.path.isfile(abs_path):
+        return []
+
+    def extract_user_text(obj: Any) -> Optional[str]:
+        if not isinstance(obj, dict):
+            return None
+
+        msgs = obj.get("messages")
+        if isinstance(msgs, list):
+            for m in msgs:
+                if isinstance(m, dict) and (m.get("role") == "user"):
+                    v = m.get("content")
+                    if isinstance(v, str) and v.strip():
+                        return v.strip()
+
+        for k in ("instruction", "prompt", "question", "query", "input"):
+            v = obj.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return None
+
+    prompts: list[str] = []
+    try:
+        if abs_path.endswith(".jsonl"):
+            with open(abs_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if len(prompts) >= limit:
+                        break
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except Exception:
+                        continue
+                    p = extract_user_text(obj)
+                    if p:
+                        prompts.append(p)
+        else:
+            with open(abs_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            items: list[Any]
+            if isinstance(data, list):
+                items = data
+            elif isinstance(data, dict) and isinstance(data.get("data"), list):
+                items = data.get("data")
+            else:
+                items = []
+            for obj in items:
+                if len(prompts) >= limit:
+                    break
+                p = extract_user_text(obj)
+                if p:
+                    prompts.append(p)
+    except Exception:
+        return []
+
+    return prompts
+
 # 生成提前停止（可选）：减少无效尾巴 token，提高吞吐。
 # - STOP_STRINGS: 逗号分隔的 stop 字符串列表；默认包含 Qwen 常见的结束标记。
 # - STOP_ON_DOUBLE_NEWLINE: 是否把 "\n\n" 作为 stop（对部分模型可显著缩短输出，但也可能过早截断）。
@@ -1144,11 +1230,20 @@ async def lifespan(app: FastAPI):
                     tok = getattr(app.state, "tokenizer", None)
                     warm_text = format_as_chat(tok, WARMUP_PROMPT)
                     sp = _build_sampling_params(tok, max_tokens=8)
+
+                    # 可选：用数据集抽样预热更多 prompt（仅在离线 LLM 路线下更划算）。
+                    warm_user_prompts = _load_warmup_user_prompts(WARMUP_DATA_PATH, WARMUP_NUM_SAMPLES)
+                    warm_texts: list[str] = [warm_text]
+                    if warm_user_prompts:
+                        warm_texts.extend([format_as_chat(tok, p) for p in warm_user_prompts])
+                    if WARMUP_REPEAT > 1:
+                        warm_texts = warm_texts * int(WARMUP_REPEAT)
+
                     if getattr(app.state, "llm", None) is not None:
                         llm = app.state.llm
 
                         def _do_warmup():
-                            _ = llm.generate([warm_text], sampling_params=sp, use_tqdm=False)
+                            _ = llm.generate(warm_texts, sampling_params=sp, use_tqdm=False)
 
                         # 同步接口：放到线程池里预热
                         await asyncio.to_thread(_do_warmup)

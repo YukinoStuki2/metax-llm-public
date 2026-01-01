@@ -71,10 +71,13 @@ ENV BATCH_MODE=1 \
         ENABLE_PREFIX_CACHING=1 \
         VLLM_QUANTIZATION= \
         VLLM_LOAD_FORMAT=auto \
-        VLLM_MAX_NUM_SEQS= \
         VLLM_MAX_NUM_BATCHED_TOKENS= \
         VLLM_COMPILATION_CONFIG= \
-        MAX_MODEL_LEN=2048 \
+        VLLM_MAX_NUM_SEQS=1024 \
+        MAX_MODEL_LEN=1024 \
+        WARMUP_DATA_PATH=./data.jsonl \
+        WARMUP_NUM_SAMPLES=64 \
+        WARMUP_REPEAT=1 \
         DEBUG_NET=0
 
 # download_model.py 的下载 token（可选；为空表示匿名下载）
