@@ -3,6 +3,7 @@ import re
 import shutil
 import json
 import logging
+import time
 from contextlib import asynccontextmanager
 import asyncio
 import uuid
@@ -902,6 +903,14 @@ async def lifespan(app: FastAPI):
         abs_model_dir = os.path.abspath(MODEL_DIR)
     print("MODEL_DIR =", abs_model_dir)
     print("BATCH_MODE =", os.environ.get("BATCH_MODE", "0"))
+    # 预热参数生效值（注意：WARMUP_NUM_SAMPLES/WARMUP_REPEAT 在代码里有上限裁剪）
+    print(
+        "WARMUP:",
+        f"data_path={WARMUP_DATA_PATH!r}",
+        f"num_samples={WARMUP_NUM_SAMPLES}",
+        f"repeat={WARMUP_REPEAT}",
+        f"data_exists={os.path.isfile(os.path.abspath(WARMUP_DATA_PATH)) if WARMUP_DATA_PATH else False}",
+    )
 
     app.state.ready = False
 
@@ -1226,6 +1235,7 @@ async def lifespan(app: FastAPI):
 
             async def _warmup_vllm():
                 try:
+                    t0 = time.perf_counter()
                     # 预热时也用 chat template，才能真正预热 system prompt 前缀缓存。
                     tok = getattr(app.state, "tokenizer", None)
                     warm_text = format_as_chat(tok, WARMUP_PROMPT)
@@ -1238,6 +1248,16 @@ async def lifespan(app: FastAPI):
                         warm_texts.extend([format_as_chat(tok, p) for p in warm_user_prompts])
                     if WARMUP_REPEAT > 1:
                         warm_texts = warm_texts * int(WARMUP_REPEAT)
+
+                    print(
+                        "WARMUP effective:",
+                        f"backend=vllm",
+                        f"engine_kind={getattr(app.state, 'engine_kind', None)}",
+                        f"use_llm={getattr(app.state, 'llm', None) is not None}",
+                        f"base+dataset={len(warm_texts)} prompts",
+                        f"dataset_loaded={len(warm_user_prompts)}",
+                        f"max_tokens={getattr(sp, 'max_tokens', None)}",
+                    )
 
                     if getattr(app.state, "llm", None) is not None:
                         llm = app.state.llm
@@ -1259,7 +1279,8 @@ async def lifespan(app: FastAPI):
                             gen = app.state.engine.generate(warm_text, sp, request_id="warmup")
                         async for _ in gen:
                             pass
-                    print("vLLM warmup done")
+                    dt = time.perf_counter() - t0
+                    print(f"vLLM warmup done (seconds={dt:.3f})")
                 except Exception as e:
                     print("vLLM warmup failed (continue):", e)
 
@@ -1286,7 +1307,7 @@ async def lifespan(app: FastAPI):
         model = AutoModelForCausalLM.from_pretrained(
             abs_model_dir,
             trust_remote_code=True,
-            torch_dtype={
+            dtype={
                 "float16": torch.float16,
                 "fp16": torch.float16,
                 "bfloat16": torch.bfloat16,
