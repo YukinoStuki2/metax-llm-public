@@ -24,7 +24,7 @@ say() { echo "[env_force] $*"; }
 export OMP_NUM_THREADS="4"
 
 # 模型下载/加载
-export MODEL_ID="YukinoStuki/Qwen3-0.6B-Plus-LLM"
+export MODEL_ID="YukinoStuki/Qwen2.5-0.5B-Plus-EN"
 export MODEL_REVISION="master"
 export MODEL_DIR="./model/$MODEL_ID"
 
@@ -45,10 +45,10 @@ export MODELSCOPE_API_TOKEN
 # serve.py 运行时参数
 export USE_VLLM="true"
 export DISABLE_TOKEN_ROUTING="0"
-export MAX_NEW_TOKENS="32"
-export MAX_NEW_TOKENS_CODE="96"
+export MAX_NEW_TOKENS="64"
+export MAX_NEW_TOKENS_CODE="192"
 export MAX_NEW_TOKENS_CODE_HARD="192"
-export MAX_NEW_TOKENS_CODE_SOFT="48"
+export MAX_NEW_TOKENS_CODE_SOFT="96"
 export HARD_CODE_MIN_HITS="1"
 export LONG_ANSWER_ENABLE_DEFAULT="1"
 export LONG_ANSWER_MIN_HITS="1"
@@ -77,7 +77,7 @@ export TRANSFORMERS_DTYPE="float16"
 # vLLM 吞吐/量化
 export ENABLE_PREFIX_CACHING="1"
 export VLLM_QUANTIZATION=""
-export VLLM_KV_CACHE_DTYPE="fp8"
+export VLLM_KV_CACHE_DTYPE=""
 export VLLM_LOAD_FORMAT="auto"
 export VLLM_ENFORCE_EAGER="0"
 export VLLM_MAX_NUM_SEQS="1024"
@@ -89,8 +89,8 @@ export MAX_MODEL_LEN="1024"
 
 # 可选：用本地数据集抽样预热（默认关闭）
 export WARMUP_DATA_PATH="./data.jsonl"
-export WARMUP_NUM_SAMPLES="7000"
-export WARMUP_NUM_SAMPLES_CAP="7000"
+export WARMUP_NUM_SAMPLES="512"
+export WARMUP_NUM_SAMPLES_CAP="512"
 export WARMUP_REPEAT="2"
 
 export DEBUG_NET="0"

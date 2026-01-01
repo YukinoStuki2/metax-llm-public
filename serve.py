@@ -1002,8 +1002,6 @@ async def lifespan(app: FastAPI):
                 # 前缀缓存通常是安全的，且能显著加速“共享前缀”的大 batch（如 system prompt）。
                 if "enable_prefix_caching" in sig.parameters:
                     engine_kwargs["enable_prefix_caching"] = _env_flag("ENABLE_PREFIX_CACHING", True)
-                if "disable_log_requests" in sig.parameters:
-                    engine_kwargs["disable_log_requests"] = True
 
                 # 可选：容量调参（默认不设置；允许通过环境变量覆盖）
                 max_num_seqs_env = os.environ.get("VLLM_MAX_NUM_SEQS")
