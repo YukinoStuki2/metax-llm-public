@@ -30,10 +30,17 @@ fi
 : "${PORT_BUSY_RETRIES:=${TUNE_PORT_BUSY_RETRIES:-3}}"
 : "${PORT_BUSY_WAIT_S:=${TUNE_PORT_BUSY_WAIT_S:-10}}"
 : "${PORT_BUSY_KILL:=${TUNE_PORT_BUSY_KILL:-0}}"
+: "${NOTIFY_TRIAL_DONE:=${TUNE_NOTIFY_TRIAL_DONE:-0}}"
+: "${NOTIFY_TRIAL_DONE_EVERY:=${TUNE_NOTIFY_TRIAL_DONE_EVERY:-1}}"
 
 PORT_BUSY_KILL_FLAG=()
 if [[ "$PORT_BUSY_KILL" == "1" ]]; then
   PORT_BUSY_KILL_FLAG=(--port_busy_kill)
+fi
+
+NOTIFY_TRIAL_DONE_FLAG=()
+if [[ "$NOTIFY_TRIAL_DONE" == "1" ]]; then
+  NOTIFY_TRIAL_DONE_FLAG=(--notify_trial_done)
 fi
 
 exec python3 auto_tune.py \
@@ -48,4 +55,6 @@ exec python3 auto_tune.py \
   --port_busy_retries "$PORT_BUSY_RETRIES" \
   --port_busy_wait_s "$PORT_BUSY_WAIT_S" \
   "${PORT_BUSY_KILL_FLAG[@]}" \
+  "${NOTIFY_TRIAL_DONE_FLAG[@]}" \
+  --notify_trial_done_every "$NOTIFY_TRIAL_DONE_EVERY" \
   --skip_existing

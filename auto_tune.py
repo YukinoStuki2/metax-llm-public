@@ -535,6 +535,19 @@ def main() -> int:
         help="端口占用时尝试清理残留 uvicorn serve:app（谨慎开关）。",
     )
 
+    ap.add_argument(
+        "--notify_trial_done",
+        action="store_true",
+        default=(os.environ.get("TUNE_NOTIFY_TRIAL_DONE", "0") == "1"),
+        help="每个 trial 完成后都发一次通知（含准确率/速度/耗时）；默认关闭，避免刷屏",
+    )
+    ap.add_argument(
+        "--notify_trial_done_every",
+        type=int,
+        default=int(os.environ.get("TUNE_NOTIFY_TRIAL_DONE_EVERY", "1") or "1"),
+        help="每 N 个 trial 发一次 trial_done 通知（配合 --notify_trial_done 使用）",
+    )
+
     # 通知：SMTP 邮件（可选）
     ap.add_argument("--smtp_host", default=os.environ.get("TUNE_SMTP_HOST", ""))
     ap.add_argument("--smtp_port", type=int, default=int(os.environ.get("TUNE_SMTP_PORT", "587")))
@@ -1086,6 +1099,39 @@ def main() -> int:
             append_jsonl(results_path, rec)
             group_results.append(rec)
             done.add(trial_key)
+
+            # 你提到需要“确切证据（本轮准确率/速度/失败）再开始下一轮”。
+            # 脚本本身就是串行跑：一轮 eval 结束并写入 rec 后才会进入下一轮。
+            # 这里提供可选的 per-trial 通知，把本轮结果直接推到飞书。
+            if args.notify_trial_done:
+                every = max(1, int(args.notify_trial_done_every))
+                if (trial_index % every) == 0:
+                    a = rec.get("avg_accuracy")
+                    tps = rec.get("avg_total_tps")
+                    ans_tps = rec.get("avg_answer_tps")
+                    tt = rec.get("avg_total_time_s")
+                    msg = (
+                        f"status={rec.get('status')}; "
+                        f"acc={a if a is not None else 'NA'}; "
+                        f"total_tps={tps if tps is not None else 'NA'}; "
+                        f"answer_tps={ans_tps if ans_tps is not None else 'NA'}; "
+                        f"total_time_s={tt if tt is not None else 'NA'}; "
+                        f"param={param_name} value={v}; ok_n={rec.get('eval_ok_n')}"
+                    )
+                    notify(
+                        "trial_done",
+                        "trial done",
+                        msg,
+                        {
+                            "trial_key": trial_key,
+                            "trial_index": trial_index,
+                            "status": rec.get("status"),
+                            "avg_accuracy": a,
+                            "avg_total_tps": tps,
+                            "avg_total_time_s": tt,
+                            "server_log": rec.get("server_log"),
+                        },
+                    )
 
             if rec.get("status") in ("failed", "partial"):
                 notify("abnormal", "eval abnormal", f"param={param_name} value={v} status={rec.get('status')}", {

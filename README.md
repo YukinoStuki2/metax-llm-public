@@ -144,6 +144,15 @@ python eval_local.py --batch --strip_q_suffix --which bonus --max_n 50
 
 用于在本机反复“启动服务 → 跑评测 → 取均值 → 记录 → 关服”，自动搜索更快的运行参数。
 
+说明：`auto_tune.py` 是严格串行的。每个 trial 都会按顺序执行：
+
+1) 启动服务并等待健康检查通过
+2) 跑 `eval_local.py` N 次并计算均值
+3) 关闭服务并等待端口释放
+4) 把本轮结果写入 `tune_results.jsonl`
+
+只有完成（或明确失败并记录）后才会进入下一轮。
+
 - 优化目标：在 `Accuracy >= 阈值` 前提下，最大化 `Throughput RAW: (prompt+answer)_tokens/s`。
 - 结果输出：
   - `tune_results.jsonl`：每个试验一行（含均值、日志路径、失败原因等）
@@ -252,6 +261,17 @@ export TUNE_SEARCH_SPACE_FILE=./tune_search_space.json
 export TUNE_PORT_BUSY_RETRIES=6
 export TUNE_PORT_BUSY_WAIT_S=10
 export TUNE_PORT_BUSY_KILL=1
+./auto_tune.sh
+```
+
+### 每轮结果通知（可选，发到飞书）
+
+默认只在 `best/abnormal/done/start` 等关键事件通知。若你希望“每一轮跑完都看到本轮准确率/速度/耗时”，可以开启 per-trial 通知（注意：会比较多）：
+
+```bash
+export TUNE_NOTIFY_TRIAL_DONE=1
+# 每 N 个 trial 发一次（1=每轮都发；例如 5=每 5 轮发一次）
+export TUNE_NOTIFY_TRIAL_DONE_EVERY=1
 ./auto_tune.sh
 ```
 

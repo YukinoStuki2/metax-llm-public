@@ -49,6 +49,10 @@ export TUNE_EMAIL_KINDS="best,crashed,done"
 # 如你确认占用者是残留 uvicorn serve:app，可谨慎开启：
 # export TUNE_PORT_BUSY_KILL=1
 
+# ===== 可选：每轮结果通知（会比较多，谨慎开启） =====
+# export TUNE_NOTIFY_TRIAL_DONE=1
+# export TUNE_NOTIFY_TRIAL_DONE_EVERY=1
+
 # ===== 可选：加速重复运行（按需打开） =====
 # export SKIP_PIP_INSTALL=1
 # export SKIP_MODEL_DOWNLOAD=1
