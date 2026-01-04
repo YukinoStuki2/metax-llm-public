@@ -128,7 +128,18 @@ def main() -> int:
     n = int(os.environ.get("N", "512"))
     seed = int(os.environ.get("SEED", "42"))
 
-    texts, total = sample_calib(data_path=data_path, n=n, seed=seed)
+    # 注意：这里的 len 单位是“字符”，不是 token。
+    # 量化时仍会被 tokenizer + max_calib_seq_len 做二次截断。
+    min_len = int(os.environ.get("MIN_LEN", "6"))
+    max_len = int(os.environ.get("MAX_LEN", "512"))
+
+    texts, total = sample_calib(
+        data_path=data_path,
+        n=n,
+        seed=seed,
+        min_len=min_len,
+        max_len=max_len,
+    )
     print(f"[sample_calib] data={data_path}, unique_candidates={total}, sampled={len(texts)}")
 
     with open(out_jsonl, "w", encoding="utf-8") as f:
