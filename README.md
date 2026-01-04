@@ -158,6 +158,69 @@ source ./env_force.sh
 ./auto_tune.sh
 ```
 
+### 容器环境保活（无 systemd / 无 systemctl）
+
+很多云平台是在容器内运行（PID 1 不是 systemd），此时 `systemctl` 会报：
+
+> System has not been booted with systemd as init system...
+
+请使用本仓库提供的 watchdog：服务异常退出就自动重启；同时 `auto_tune.py` 会基于 `tune_results.jsonl` 自动断点续跑。
+
+1) 更新代码并准备私密配置：
+
+```bash
+cd /data/metax-demo-mirror
+git pull
+
+cp tune_secrets.example.sh tune_secrets.sh
+vim tune_secrets.sh
+chmod 600 tune_secrets.sh
+```
+
+2) 可选：无模型自检（不启动模型，只校验解析/落盘/通知逻辑）：
+
+```bash
+./auto_tune.py --selftest --repo .
+```
+
+3) 后台启动 watchdog（断线不掉）：
+
+```bash
+nohup ./run_autotune_forever.sh > autotune.watchdog.log 2>&1 &
+```
+
+4) 观察与停止：
+
+```bash
+# 看进程
+ps -ef | grep -E 'run_autotune_forever|auto_tune.py' | grep -v grep
+
+# 看日志
+tail -f autotune.watchdog.log
+
+# 看实时状态
+cat tune_status.json
+
+# 停止（pid 文件是“文本文件”，用 cat，不要当脚本执行）
+cat autotune.watchdog.pid
+kill "$(cat autotune.watchdog.pid)"
+```
+
+提示：如果容器本身被平台重建/重启，nohup 也无法存活；需要在平台侧设置“失败自动重启/始终运行”，并把启动命令设为 `./run_autotune_forever.sh`。
+
+### systemd 保活（仅适用于裸机/VM，有 systemd 的环境）
+
+如果你的机器支持 systemd，可以参考示例服务文件 [autotune.service.example](autotune.service.example)。
+
+```bash
+sudo cp autotune.service.example /etc/systemd/system/autotune.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now autotune.service
+
+# 日志
+sudo journalctl -u autotune.service -f
+```
+
 ### 通知（可选）
 
 1) Webhook（推荐，通用）：
@@ -195,6 +258,16 @@ export TUNE_SMTP_USER="user@example.com"
 export TUNE_SMTP_PASS="your_password_or_token"
 export TUNE_SMTP_FROM="user@example.com"
 export TUNE_SMTP_TO="you@example.com"
+
+# 587 常用 STARTTLS；如需禁用 STARTTLS：
+# export TUNE_SMTP_NO_STARTTLS=1
+
+# 465 常用 SMTPS（SSL）；如需启用：
+# export TUNE_SMTP_SSL=1
+
+# 可选：控制发信类型（best/crashed/done/abnormal）
+# export TUNE_EMAIL_KINDS="best,crashed,done"
+
 ./auto_tune.sh
 ```
 
