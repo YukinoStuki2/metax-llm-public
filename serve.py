@@ -1003,6 +1003,21 @@ async def lifespan(app: FastAPI):
                 if "enable_prefix_caching" in sig.parameters:
                     engine_kwargs["enable_prefix_caching"] = _env_flag("ENABLE_PREFIX_CACHING", True)
 
+                # 可选：Tokenizer 进程池（大 batch 场景下经常能显著降低 CPU 分词开销）。
+                # 注意：不同 vLLM/平台插件对 pool type 支持不同；因此只在用户显式设置时启用。
+                tok_pool_size_env = (os.environ.get("VLLM_TOKENIZER_POOL_SIZE") or "").strip()
+                if tok_pool_size_env and "tokenizer_pool_size" in sig.parameters:
+                    try:
+                        engine_kwargs["tokenizer_pool_size"] = int(tok_pool_size_env)
+                        print("Using VLLM_TOKENIZER_POOL_SIZE =", engine_kwargs["tokenizer_pool_size"])
+                    except Exception:
+                        pass
+
+                tok_pool_type_env = (os.environ.get("VLLM_TOKENIZER_POOL_TYPE") or "").strip()
+                if tok_pool_type_env and "tokenizer_pool_type" in sig.parameters:
+                    engine_kwargs["tokenizer_pool_type"] = tok_pool_type_env
+                    print("Using VLLM_TOKENIZER_POOL_TYPE =", engine_kwargs["tokenizer_pool_type"])
+
                 # 可选：容量调参（默认不设置；允许通过环境变量覆盖）
                 max_num_seqs_env = os.environ.get("VLLM_MAX_NUM_SEQS")
                 if max_num_seqs_env and "max_num_seqs" in sig.parameters:

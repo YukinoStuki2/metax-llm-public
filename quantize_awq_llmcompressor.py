@@ -1,37 +1,58 @@
 #!/usr/bin/env python3
 """\
-使用 AutoAWQ 对本地 HuggingFace 目录模型做 AWQ（非 marlin 依赖），并导出为标准 HF 目录。
+一次性脚本：对 Qwen2.5-0.5B-Plus-LLM 做 AutoAWQ 4bit 量化并导出。
 
-背景：
-- 沐曦/MetaX 的部分环境/架构不支持 Marlin kernel。
-- 之前 llm-compressor 导出的 compressed-tensors 路径在 vLLM 上会走 marlin 分支，导致无法运行。
-- 这里改用 AutoAWQ 产物（HF 目录 + quant config），用于覆盖同名仓库的旧产物。
+你只需要改路径（或传参），直接运行导出一版 AWQ；其它参数全部内置，
+以“尽量保准确率”为优先。
 
-重要约束（按你的要求固定）：
-- 输出目录默认固定为：model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ
-- 上传脚本 upload_model.py 默认也指向同一路径，可直接覆盖之前那份。
+备注：脚本里的“max_seq_len 越大越慢、越吃显存”说的是【量化校准阶段】。
+你这里不在乎耗时没问题，但如果显存不够，仍可能 OOM。
 
-典型用法：
-  python quantize_awq_llmcompressor.py \
-    --model_dir model/YukinoStuki/Qwen3-4B-Plus-LLM \
-    --calib_jsonl calib_512.jsonl \
-    --output_dir model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ
-
-说明：
-- 本脚本不改 requirements.txt（线上 serving 不依赖 AutoAWQ）。
-- 建议在单独环境安装依赖后运行（见 requirements-quantize-awq.txt）。
+依赖：建议在单独环境安装 requirements-quantize-awq.txt 后运行。
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import random
 from pathlib import Path
 from typing import Any, List
 
 
-DEFAULT_MODEL_DIR = "model/YukinoStuki/Qwen3-4B-Plus-LLM"
-DEFAULT_OUTPUT_DIR = "model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ"
+# =====================
+# 一次性配置区（只为 0.5B）
+# =====================
+DEFAULT_MODEL_DIR = "model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM"
+DEFAULT_OUTPUT_DIR = "model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ"
+
+# 校准集（建议：用与你线上评测相近分布的数据；这里默认用仓库已有的 calib_512.jsonl）
+DEFAULT_CALIB_JSONL = "calib_512.jsonl"
+
+# 量化参数（偏保守以保准确率）
+AWQ_W_BIT = 4
+AWQ_Q_GROUP_SIZE = 64
+AWQ_ZERO_POINT = True
+AWQ_BACKEND = "GEMM"  # AutoAWQ quant backend
+
+# 校准规模（时间无所谓时可适当加大；显存不足就降 max_seq_len 或 num_calib）
+AWQ_NUM_CALIB = 4096
+AWQ_MAX_SEQ_LEN = 2048
+
+# 一般不量化 lm_head（更稳）
+AWQ_MODULES_TO_NOT_CONVERT = ["lm_head"]
+
+# 关键：校准 prompt 分布要贴近线上推理（system+user+assistant 的 chat prompt）
+AWQ_CALIB_APPLY_CHAT_TEMPLATE = True
+AWQ_CALIB_SYSTEM_PROMPT = (
+    "你是评测答题模型。目标：ROUGE-L高分且尽量少输出token。\n"
+    "只输出答案正文，切中要点，列出个别关键术语或结论，不要任何“思考过程/推理/分析/步骤/解释/客套”，不要出现“思考完成”等字样。\n\n"
+    "写法要求：\n"
+    "1) 尽量复用教材/标准表述，少改写，保持常见措辞与词序。\n"
+    "2) 用3-6个短句/短语覆盖关键点（定义/参数/公式/步骤/关键术语），不要长段落。\n"
+    "3) 不举例、不扩展背景、不重复。\n"
+    "4) 若题目要求代码：只输出最短可用的核心代码/伪代码骨架，不加Markdown围栏，不解释。"
+)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -43,61 +64,10 @@ def _parse_args() -> argparse.Namespace:
         help="本地 HF 模型目录（含 config.json / tokenizer 等）",
     )
     parser.add_argument(
-        "--calib_jsonl",
-        type=str,
-        default=os.environ.get("AWQ_CALIB_JSONL") or "calib_512.jsonl",
-        help='校准集 JSONL（每行 {"text": "..."}）',
-    )
-    parser.add_argument(
         "--output_dir",
         type=str,
         default=os.environ.get("AWQ_OUTPUT_DIR") or DEFAULT_OUTPUT_DIR,
         help="输出目录（标准 HF 目录，用于 upload_model.py 覆盖上传）",
-    )
-    parser.add_argument(
-        "--num_calib",
-        type=int,
-        default=int(os.environ.get("AWQ_NUM_CALIB", "256")),
-        help="使用多少条校准样本（<= 校准集行数）",
-    )
-    parser.add_argument(
-        "--max_seq_len",
-        type=int,
-        default=int(os.environ.get("AWQ_MAX_SEQ_LEN", "1024")),
-        help="校准时最大序列长度（越大越慢、越吃显存）",
-    )
-    parser.add_argument(
-        "--w_bit",
-        type=int,
-        default=int(os.environ.get("AWQ_W_BIT", "4")),
-        help="权重量化 bit 数（常用 4）",
-    )
-    parser.add_argument(
-        "--q_group_size",
-        type=int,
-        default=int(os.environ.get("AWQ_Q_GROUP_SIZE", "128")),
-        help="group size（常用 128）",
-    )
-    parser.add_argument(
-        "--zero_point",
-        type=int,
-        default=int(os.environ.get("AWQ_ZERO_POINT", "1")),
-        help="是否使用 zero point（1/0）",
-    )
-    parser.add_argument(
-        "--backend",
-        type=str,
-        default=os.environ.get("AWQ_BACKEND") or "GEMM",
-        choices=["GEMM", "GEMV"],
-        help="AutoAWQ quant backend（通常 GEMM 更通用）",
-    )
-    parser.add_argument(
-        "--modules_to_not_convert",
-        type=str,
-        default=os.environ.get("AWQ_MODULES_TO_NOT_CONVERT") or "lm_head",
-        help=(
-            "不量化的模块名（逗号分隔）。默认 lm_head，与之前脚本 ignore lm_head 对齐。"
-        ),
     )
     parser.add_argument(
         "--trust_remote_code",
@@ -117,11 +87,18 @@ def _parse_args() -> argparse.Namespace:
 def _iter_calib_texts(calib_jsonl: Path, limit: int) -> List[str]:
     import json
 
+    # 为了更贴近真实分布，避免“只取文件开头”的偏差：做一次均匀随机抽样。
+    # reservoir sampling：单次扫描、O(limit) 内存，适合大文件。
+    limit = int(limit)
+    if limit <= 0:
+        return []
+
+    rng = random.Random(42)
     texts: List[str] = []
+    seen = 0
+
     with calib_jsonl.open("r", encoding="utf-8") as f:
         for line in f:
-            if len(texts) >= limit:
-                break
             s = (line or "").strip()
             if not s:
                 continue
@@ -129,18 +106,75 @@ def _iter_calib_texts(calib_jsonl: Path, limit: int) -> List[str]:
                 obj = json.loads(s)
             except Exception:
                 continue
-            if isinstance(obj, dict):
-                t = obj.get("text")
-                if isinstance(t, str) and t.strip():
-                    texts.append(t)
+            if not isinstance(obj, dict):
+                continue
+            t = obj.get("text")
+            if not (isinstance(t, str) and t.strip()):
+                continue
+
+            seen += 1
+            if len(texts) < limit:
+                texts.append(t)
+                continue
+
+            # 以 limit/seen 的概率替换已有样本
+            j = rng.randrange(seen)
+            if j < limit:
+                texts[j] = t
+
     return texts
+
+
+def _format_calib_as_chat(tokenizer: Any, user_text: str, system_prompt: str) -> str:
+    """把校准样本文本包装成 chat prompt。
+
+    优先使用 tokenizer.apply_chat_template（最兼容）；失败则回退到 Qwen 常见 im_start 格式。
+    """
+
+    u = (user_text or "").strip()
+    if not u:
+        return ""
+
+    sys_p = (system_prompt or "").strip()
+    if tokenizer is None:
+        # 无 tokenizer 时只能用纯文本拼接。
+        if sys_p:
+            return sys_p + "\n" + u
+        return u
+
+    messages: list[dict[str, str]] = []
+    if sys_p:
+        messages.append({"role": "system", "content": sys_p})
+    messages.append({"role": "user", "content": u})
+
+    try:
+        return tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+    except Exception:
+        # Qwen2/2.5/3 系列常见格式：<|im_start|>system\n...<|im_end|>\n<|im_start|>user\n...<|im_end|>\n<|im_start|>assistant\n
+        if sys_p:
+            return (
+                "<|im_start|>system\n"
+                + sys_p
+                + "<|im_end|>\n"
+                + "<|im_start|>user\n"
+                + u
+                + "<|im_end|>\n"
+                + "<|im_start|>assistant\n"
+            )
+        return (
+            "<|im_start|>user\n" + u + "<|im_end|>\n" + "<|im_start|>assistant\n"
+        )
 
 
 def main() -> None:
     args = _parse_args()
 
     model_dir = Path(args.model_dir).expanduser()
-    calib_jsonl = Path(args.calib_jsonl).expanduser()
+    calib_jsonl = Path(os.environ.get("AWQ_CALIB_JSONL") or DEFAULT_CALIB_JSONL).expanduser()
     output_dir = Path(args.output_dir).expanduser()
 
     if not model_dir.is_dir():
@@ -177,22 +211,39 @@ def main() -> None:
     )
 
     # 读取校准文本（AutoAWQ 支持传 list[str]）
-    calib_texts = _iter_calib_texts(calib_jsonl, limit=int(args.num_calib))
+    calib_texts = _iter_calib_texts(calib_jsonl, limit=int(AWQ_NUM_CALIB))
     if not calib_texts:
         raise SystemExit("校准集为空或解析失败：请检查 calib_jsonl 格式是否为每行 {\"text\": \"...\"}")
 
+    if AWQ_CALIB_APPLY_CHAT_TEMPLATE:
+        sys_p = str(AWQ_CALIB_SYSTEM_PROMPT or "").strip()
+        formatted: List[str] = []
+        for t in calib_texts:
+            ft = _format_calib_as_chat(tokenizer, t, sys_p)
+            if ft:
+                formatted.append(ft)
+        if formatted:
+            calib_texts = formatted
+        print(
+            "[AutoAWQ] calib_apply_chat_template=1",
+            f"system_prompt_len={len(sys_p)}",
+            f"num_calib={len(calib_texts)}",
+        )
+    else:
+        print("[AutoAWQ] calib_apply_chat_template=0 (using raw texts)")
+
     quant_config: dict[str, Any] = {
-        "zero_point": bool(int(args.zero_point)),
-        "q_group_size": int(args.q_group_size),
-        "w_bit": int(args.w_bit),
-        "version": str(args.backend),
+        "zero_point": bool(AWQ_ZERO_POINT),
+        "q_group_size": int(AWQ_Q_GROUP_SIZE),
+        "w_bit": int(AWQ_W_BIT),
+        "version": str(AWQ_BACKEND),
     }
-    mods = [m.strip() for m in str(args.modules_to_not_convert).split(",") if m.strip()]
+    mods = list(AWQ_MODULES_TO_NOT_CONVERT)
     if mods:
         print("[AutoAWQ] modules_to_not_convert =", mods)
     print("[AutoAWQ] quant_config =", quant_config)
     print(
-        f"[AutoAWQ] Quantizing with num_calib={len(calib_texts)}, max_seq_len={args.max_seq_len}"
+        f"[AutoAWQ] Quantizing with num_calib={len(calib_texts)}, max_seq_len={AWQ_MAX_SEQ_LEN}"
     )
 
     model = AutoAWQForCausalLM.from_pretrained(
@@ -209,7 +260,7 @@ def main() -> None:
             tokenizer,
             quant_config=quant_config,
             calib_data=calib_texts,
-            max_calib_seq_len=int(args.max_seq_len),
+            max_calib_seq_len=int(AWQ_MAX_SEQ_LEN),
             modules_to_not_convert=mods if mods else None,
         )
     except TypeError:
@@ -217,7 +268,7 @@ def main() -> None:
             tokenizer,
             quant_config=quant_config,
             calib_data=calib_texts,
-            max_calib_seq_len=int(args.max_seq_len),
+            max_calib_seq_len=int(AWQ_MAX_SEQ_LEN),
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
