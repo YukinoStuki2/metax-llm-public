@@ -39,6 +39,15 @@ Thumbs.db
 # Local artifacts
 eval_details.jsonl
 
+# Auto-tune runtime artifacts
+tune_results*.jsonl
+tune_status*.json
+tune_server_logs/
+push_metax-demo*.log
+
+# Local secrets (DO NOT COMMIT)
+tune_secrets.sh
+
 # Model (local, large)
 model/
 models/

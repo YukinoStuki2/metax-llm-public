@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+# 自动加载本地私密配置（若存在）。
+# 建议：cp tune_secrets.example.sh tune_secrets.sh 并填入密钥。
+if [[ -f "./tune_secrets.sh" ]]; then
+  # shellcheck disable=SC1091
+  source "./tune_secrets.sh"
+fi
+
+# 推荐用法：
+# 1) 先清干净默认参数（可选）
+#    source ./env_force.sh
+# 2) 再启动自动调参
+#    ./auto_tune.sh
+#
+# 你也可以临时覆盖：
+#   ACC=0.8810 EVAL_RUNS=5 ./auto_tune.sh
+
+: "${REPO:=.}"
+: "${EVAL_RUNS:=5}"
+: "${ACC:=0.8800}"
+: "${STARTUP_TIMEOUT:=240}"
+: "${EVAL_TIMEOUT:=420}"
+
+exec python3 auto_tune.py \
+  --repo "$REPO" \
+  --eval_runs "$EVAL_RUNS" \
+  --accuracy_threshold "$ACC" \
+  --startup_timeout "$STARTUP_TIMEOUT" \
+  --eval_timeout "$EVAL_TIMEOUT" \
+  --skip_existing

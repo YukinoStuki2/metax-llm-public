@@ -132,22 +132,34 @@ fi
 
 say "Using python: $PYTHON_BIN"
 
-say "Installing requirements.txt"
-"$PYTHON_BIN" -m pip install --no-cache-dir -r requirements.txt
+: "${SKIP_PIP_INSTALL:=0}"
+export SKIP_PIP_INSTALL
+if [[ "$SKIP_PIP_INSTALL" == "1" ]]; then
+  say "SKIP_PIP_INSTALL=1: skip installing requirements.txt"
+else
+  say "Installing requirements.txt"
+  "$PYTHON_BIN" -m pip install --no-cache-dir -r requirements.txt
+fi
 
 # ======================
 # 3) 下载模型（与 Dockerfile 的 RUN python download_model.py ... 保持一致）
 # ======================
-say "Downloading model: $MODEL_ID (revision=$MODEL_REVISION)"
-mkdir -p ./model
-"$PYTHON_BIN" download_model.py \
-  --model_name "$MODEL_ID" \
-  --cache_dir ./model \
-  --revision "$MODEL_REVISION" \
-  --token "$MODELSCOPE_API_TOKEN" \
-  --draft_model_name "$SPEC_DRAFT_MODEL_ID" \
-  --draft_revision "$SPEC_DRAFT_MODEL_REVISION" \
-  --draft_optional
+: "${SKIP_MODEL_DOWNLOAD:=0}"
+export SKIP_MODEL_DOWNLOAD
+if [[ "$SKIP_MODEL_DOWNLOAD" == "1" ]]; then
+  say "SKIP_MODEL_DOWNLOAD=1: skip download_model.py"
+else
+  say "Downloading model: $MODEL_ID (revision=$MODEL_REVISION)"
+  mkdir -p ./model
+  "$PYTHON_BIN" download_model.py \
+    --model_name "$MODEL_ID" \
+    --cache_dir ./model \
+    --revision "$MODEL_REVISION" \
+    --token "$MODELSCOPE_API_TOKEN" \
+    --draft_model_name "$SPEC_DRAFT_MODEL_ID" \
+    --draft_revision "$SPEC_DRAFT_MODEL_REVISION" \
+    --draft_optional
+fi
 
 # ======================
 # 4) 启动服务（与 Dockerfile 的 CMD 保持一致）

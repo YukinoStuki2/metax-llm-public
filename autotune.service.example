@@ -1,0 +1,22 @@
+# 仅在有 systemd 的机器上使用（通常需要 root 安装到 /etc/systemd/system/）。
+# 通过 systemd 实现：异常退出自动重启、开机自启（可选）。
+
+[Unit]
+Description=metax auto_tune watchdog
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/data/metax-demo-mirror
+# 通知/密钥等配置：直接放在 /data/metax-demo-mirror/tune_secrets.sh
+# auto_tune.sh 会自动 source 该文件（若存在），无需 systemd 的 EnvironmentFile。
+ExecStart=/bin/bash -lc '/data/metax-demo-mirror/auto_tune.sh'
+Restart=always
+RestartSec=10
+
+# 让日志进入 journald：journalctl -u autotune -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

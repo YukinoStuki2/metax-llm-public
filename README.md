@@ -140,6 +140,83 @@ python merge_adapter.py \
 python eval_local.py --batch --strip_q_suffix --which bonus --max_n 50
 ```
 
+## 自动化调参（auto_tune.py）
+
+用于在本机反复“启动服务 → 跑评测 → 取均值 → 记录 → 关服”，自动搜索更快的运行参数。
+
+- 优化目标：在 `Accuracy >= 阈值` 前提下，最大化 `Throughput RAW: (prompt+answer)_tokens/s`。
+- 结果输出：
+  - `tune_results.jsonl`：每个试验一行（含均值、日志路径、失败原因等）
+  - `best_params.json`：实时保存当前最优参数（后续试验会基于它继续搜索）
+  - `tune_status.json`：实时状态（当前测试参数/进度），便于外部轮询查看
+
+运行示例：
+
+```bash
+cd /data/metax-demo-mirror
+source ./env_force.sh
+./auto_tune.sh
+```
+
+### 通知（可选）
+
+1) Webhook（推荐，通用）：
+
+```bash
+export TUNE_WEBHOOK_URL="https://<your-webhook-endpoint>"
+./auto_tune.sh
+```
+
+#### 飞书（推荐）
+
+使用「飞书群自定义机器人」最省事：
+
+- 在飞书群里：`群设置` → `机器人` → `添加机器人` → `自定义机器人`
+- 复制 `Webhook 地址`
+- （可选）在机器人「安全设置」里开启 `签名校验`，得到 `secret`
+
+然后在评测机上设置：
+
+```bash
+export TUNE_WEBHOOK_KIND=feishu
+export TUNE_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/xxxx"
+# 可选：如果你开启了签名校验
+export TUNE_FEISHU_SECRET="your_secret"
+
+./auto_tune.sh
+```
+
+2) SMTP 邮件：
+
+```bash
+export TUNE_SMTP_HOST="smtp.example.com"
+export TUNE_SMTP_PORT="587"
+export TUNE_SMTP_USER="user@example.com"
+export TUNE_SMTP_PASS="your_password_or_token"
+export TUNE_SMTP_FROM="user@example.com"
+export TUNE_SMTP_TO="you@example.com"
+./auto_tune.sh
+```
+
+#### 163 邮箱兜底（示例）
+
+163 通常需要在邮箱设置里开启 SMTP，并生成“授权码”（不是登录密码）。
+
+```bash
+export TUNE_SMTP_HOST="smtp.163.com"
+export TUNE_SMTP_PORT="465"
+export TUNE_SMTP_USER="imuner@163.com"
+export TUNE_SMTP_PASS="<163授权码>"
+export TUNE_SMTP_FROM="imuner@163.com"
+export TUNE_SMTP_TO="imuner@163.com"
+export TUNE_SMTP_SSL=1
+
+# 邮件默认只发 best/crashed/done；如需更多：
+# export TUNE_EMAIL_KINDS="best,crashed,done,abnormal"
+
+./auto_tune.sh
+```
+
 ## Speculative Decoding（冲吞吐，可选）
 
 本仓库已在 [serve.py](serve.py) 接入 vLLM 的 speculative decoding（需要一个 draft 小模型）。
