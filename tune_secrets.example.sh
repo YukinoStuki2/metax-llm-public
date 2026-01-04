@@ -35,6 +35,10 @@ export TUNE_SMTP_FROM=""
 # 触发哪些邮件（可选）：best,crashed,done,abnormal
 export TUNE_EMAIL_KINDS="best,crashed,done"
 
+# ===== 可选：心跳（保活提示） =====
+# 每隔 N 秒发送一次 heartbeat（含已运行时长）。例如 600=10min。
+# export TUNE_HEARTBEAT_INTERVAL_S=600
+
 # ===== 可选：加速重复运行（按需打开） =====
 # export SKIP_PIP_INSTALL=1
 # export SKIP_MODEL_DOWNLOAD=1

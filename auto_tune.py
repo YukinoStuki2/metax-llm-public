@@ -366,6 +366,19 @@ def choose_best(
     return ok[0]
 
 
+def _fmt_duration(seconds: float) -> str:
+    try:
+        s = int(seconds)
+    except Exception:
+        s = 0
+    if s < 0:
+        s = 0
+    h = s // 3600
+    m = (s % 3600) // 60
+    ss = s % 60
+    return f"{h:02d}:{m:02d}:{ss:02d}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=repo_root_from_script(), help="仓库路径（默认脚本所在目录）")
@@ -380,6 +393,12 @@ def main() -> int:
     ap.add_argument("--server_log_dir", default="tune_server_logs")
     ap.add_argument("--status_file", default="tune_status.json", help="实时状态输出（json），便于外部查看")
     ap.add_argument("--heartbeat_trials", type=int, default=10, help="每 N 个 trial 发一次心跳通知（0=关闭）")
+    ap.add_argument(
+        "--heartbeat_interval_s",
+        type=int,
+        default=int(os.environ.get("TUNE_HEARTBEAT_INTERVAL_S", "0") or "0"),
+        help="每隔 N 秒发一次心跳通知（0=关闭）。例如 600=10min",
+    )
 
     # 通知：SMTP 邮件（可选）
     ap.add_argument("--smtp_host", default=os.environ.get("TUNE_SMTP_HOST", ""))
@@ -425,6 +444,12 @@ def main() -> int:
     best_path = os.path.join(repo, args.best)
     server_log_dir = os.path.join(repo, args.server_log_dir)
     status_path = os.path.join(repo, args.status_file)
+
+    run_started_ts = time.time()
+    last_heartbeat_ts = 0.0
+
+    def uptime_str() -> str:
+        return _fmt_duration(time.time() - run_started_ts)
     os.makedirs(server_log_dir, exist_ok=True)
 
     current_server: Dict[str, Optional[subprocess.Popen]] = {"p": None}
@@ -466,6 +491,7 @@ def main() -> int:
                 md = (
                     f"**事件**：{kind}\n"
                     f"**时间**：{payload['ts']}\n"
+                    f"**已运行**：{uptime_str()}\n"
                     f"**信息**：{message}\n"
                     f"**结果文件**：`{os.path.relpath(results_path, repo)}`\n"
                     f"**最优参数**：`{os.path.relpath(best_path, repo)}`\n"
@@ -692,6 +718,7 @@ def main() -> int:
 
     write_status({"phase": "start", "best_params": base_params, "results": os.path.relpath(results_path, repo)})
     notify("start", "tuning started", "auto_tune started", {"accuracy_threshold": args.accuracy_threshold})
+    last_heartbeat_ts = time.time()
 
     # 核心：按参数逐组测试；每组结束就更新 base_params（实时保持最优参数）。
     for param_name in order:
@@ -720,6 +747,18 @@ def main() -> int:
                     "best_params": base_params,
                 }
             )
+
+            # 时间心跳：每隔固定秒数发一次（更适合长时间运行/容器保活观察）
+            if args.heartbeat_interval_s and args.heartbeat_interval_s > 0:
+                now_ts = time.time()
+                if (now_ts - last_heartbeat_ts) >= float(args.heartbeat_interval_s):
+                    last_heartbeat_ts = now_ts
+                    notify(
+                        "heartbeat",
+                        "heartbeat",
+                        f"alive; uptime={uptime_str()}; trial={trial_index}; param={param_name} value={v}",
+                        {"trial_key": trial_key, "param": param_name, "trial_index": trial_index},
+                    )
 
             if args.heartbeat_trials and args.heartbeat_trials > 0 and (trial_index % int(args.heartbeat_trials) == 0):
                 notify(

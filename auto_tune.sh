@@ -24,6 +24,8 @@ fi
 : "${ACC:=0.8800}"
 : "${STARTUP_TIMEOUT:=240}"
 : "${EVAL_TIMEOUT:=420}"
+: "${HEARTBEAT_TRIALS:=10}"
+: "${HEARTBEAT_INTERVAL_S:=${TUNE_HEARTBEAT_INTERVAL_S:-0}}"
 
 exec python3 auto_tune.py \
   --repo "$REPO" \
@@ -31,4 +33,6 @@ exec python3 auto_tune.py \
   --accuracy_threshold "$ACC" \
   --startup_timeout "$STARTUP_TIMEOUT" \
   --eval_timeout "$EVAL_TIMEOUT" \
+  --heartbeat_trials "$HEARTBEAT_TRIALS" \
+  --heartbeat_interval_s "$HEARTBEAT_INTERVAL_S" \
   --skip_existing

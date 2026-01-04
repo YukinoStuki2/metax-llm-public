@@ -189,6 +189,14 @@ chmod 600 tune_secrets.sh
 nohup ./run_autotune_forever.sh > autotune.watchdog.log 2>&1 &
 ```
 
+如需每 10 分钟发一次“我还活着”的飞书/邮件心跳（含已运行时长），在运行前设置：
+
+```bash
+export TUNE_HEARTBEAT_INTERVAL_S=600
+# 可选：关闭“按 trial 次数心跳”（默认每 10 个 trial 一次）
+export HEARTBEAT_TRIALS=0
+```
+
 4) 观察与停止：
 
 ```bash
