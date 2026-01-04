@@ -31,7 +31,7 @@ import urllib.request
 import base64
 import hashlib
 import hmac
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Set
 
 
 ACCURACY_RE = re.compile(r"Accuracy \(RougeL-F1 mean, RAW\):\s*([0-9.]+)")
@@ -59,6 +59,116 @@ def append_jsonl(path: str, obj: Any) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+
+def _load_json_file(path: str) -> Optional[Any]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def merge_search_space(base: Dict[str, List[str]], extra: Dict[str, Any]) -> Dict[str, List[str]]:
+    """合并外部搜索空间。
+
+    extra 格式示例：
+      {"GPU_MEMORY_UTILIZATION": ["0.965", "0.975"], "NEW_PARAM": ["a", "b"]}
+    """
+    out: Dict[str, List[str]] = {k: list(v) for k, v in (base or {}).items()}
+    for k, vv in (extra or {}).items():
+        if vv is None:
+            continue
+        if isinstance(vv, (list, tuple)):
+            items = [str(x) for x in vv]
+        else:
+            items = [str(vv)]
+        cur = out.get(str(k), [])
+        seen = set(cur)
+        for x in items:
+            if x not in seen:
+                cur.append(x)
+                seen.add(x)
+        out[str(k)] = cur
+    return out
+
+
+def _list_listening_pids(port: int) -> Set[int]:
+    """尽量从 ss 输出中解析监听指定端口的 pid 集合。
+
+    说明：容器里通常有 ss；没有的话返回空集合。
+    """
+    try:
+        cp = subprocess.run(
+            ["ss", "-ltnp"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=3,
+        )
+        out = cp.stdout or ""
+    except Exception:
+        return set()
+
+    pids: Set[int] = set()
+    for line in out.splitlines():
+        if f":{port}" not in line:
+            continue
+        for m in re.finditer(r"pid=(\d+)", line):
+            try:
+                pids.add(int(m.group(1)))
+            except Exception:
+                pass
+    return pids
+
+
+def _read_cmdline(pid: int) -> str:
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            raw = f.read()
+        return raw.replace(b"\x00", b" ").decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
+
+
+def try_free_port(port: int, wait_s: float, kill: bool) -> bool:
+    """尝试释放端口：先等一等；必要时（可选）安全地杀掉明显的残留 uvicorn serve:app 进程。"""
+    if ensure_port_free(port, wait_s=0.5):
+        return True
+
+    if kill:
+        pids = _list_listening_pids(port)
+        # 只杀“很像我们服务”的进程，避免误伤。
+        candidates: List[int] = []
+        for pid in sorted(pids):
+            cmd = _read_cmdline(pid)
+            if not cmd:
+                continue
+            if "uvicorn" in cmd and "serve:app" in cmd:
+                candidates.append(pid)
+
+        for pid in candidates:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except Exception:
+                pass
+
+        # 给一点时间优雅退出
+        deadline = time.time() + min(5.0, max(0.5, float(wait_s)))
+        while time.time() < deadline:
+            if ensure_port_free(port, wait_s=0.5):
+                return True
+            time.sleep(0.5)
+
+        # 还没释放，再强杀
+        for pid in candidates:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except Exception:
+                pass
+
+    # 最后再等 wait_s
+    return ensure_port_free(port, wait_s=float(wait_s))
 
 
 def try_send_webhook(url: str, payload: Dict[str, Any], timeout_s: float = 8.0) -> Optional[str]:
@@ -400,6 +510,31 @@ def main() -> int:
         help="每隔 N 秒发一次心跳通知（0=关闭）。例如 600=10min",
     )
 
+    ap.add_argument(
+        "--search_space_file",
+        default=os.environ.get("TUNE_SEARCH_SPACE_FILE", ""),
+        help="外部搜索空间 JSON 文件路径（可选）。格式：{\"PARAM\":[\"v1\",\"v2\"], ... }",
+    )
+
+    ap.add_argument(
+        "--port_busy_retries",
+        type=int,
+        default=int(os.environ.get("TUNE_PORT_BUSY_RETRIES", "3") or "3"),
+        help="端口占用时重试次数（每次会等待/尝试释放）。",
+    )
+    ap.add_argument(
+        "--port_busy_wait_s",
+        type=float,
+        default=float(os.environ.get("TUNE_PORT_BUSY_WAIT_S", "10") or "10"),
+        help="端口占用时每次重试的等待秒数。",
+    )
+    ap.add_argument(
+        "--port_busy_kill",
+        action="store_true",
+        default=(os.environ.get("TUNE_PORT_BUSY_KILL", "0") == "1"),
+        help="端口占用时尝试清理残留 uvicorn serve:app（谨慎开关）。",
+    )
+
     # 通知：SMTP 邮件（可选）
     ap.add_argument("--smtp_host", default=os.environ.get("TUNE_SMTP_HOST", ""))
     ap.add_argument("--smtp_port", type=int, default=int(os.environ.get("TUNE_SMTP_PORT", "587")))
@@ -653,6 +788,13 @@ def main() -> int:
         "OUTPUT_MAX_SENTENCES": ["3", "4", "6", "8"],
     }
 
+    # 可选：从外部 JSON 合并搜索空间，便于在“合理范围内”扩展组合数量。
+    # 格式：{"PARAM":["v1","v2"], "NEW_PARAM":["a","b"]}
+    if args.search_space_file:
+        extra = _load_json_file(args.search_space_file)
+        if isinstance(extra, dict):
+            search_space = merge_search_space(search_space, extra)
+
     order = [
         # 先找一个不 OOM 的高利用率
         "GPU_MEMORY_UTILIZATION",
@@ -677,6 +819,11 @@ def main() -> int:
         "REPETITION_PENALTY",
         "FREQUENCY_PENALTY",
     ]
+
+    # 外部 search_space 里如果带了新参数名，默认追加到最后探索。
+    for k in search_space.keys():
+        if k not in order:
+            order.append(k)
 
     done = load_completed_keys(results_path) if args.skip_existing else set()
 
@@ -771,7 +918,24 @@ def main() -> int:
             if args.skip_existing and trial_key in done:
                 continue
 
-            if not ensure_port_free(args.port, wait_s=3.0):
+            # 端口占用：不要直接连续失败（会导致“探索数量看起来很多但全是失败”）。
+            # 这里做带重试的等待/（可选）清理残留进程。
+            port_ok = False
+            for attempt in range(max(0, int(args.port_busy_retries)) + 1):
+                if try_free_port(args.port, wait_s=float(args.port_busy_wait_s), kill=bool(args.port_busy_kill)):
+                    port_ok = True
+                    break
+                write_status(
+                    {
+                        "phase": "port_busy",
+                        "trial_index": trial_index,
+                        "trial_key": trial_key,
+                        "param": param_name,
+                        "attempt": attempt + 1,
+                        "message": f"port {args.port} still in use",
+                    }
+                )
+            if not port_ok:
                 append_jsonl(
                     results_path,
                     {

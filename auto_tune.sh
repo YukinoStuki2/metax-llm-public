@@ -26,6 +26,15 @@ fi
 : "${EVAL_TIMEOUT:=420}"
 : "${HEARTBEAT_TRIALS:=10}"
 : "${HEARTBEAT_INTERVAL_S:=${TUNE_HEARTBEAT_INTERVAL_S:-0}}"
+: "${SEARCH_SPACE_FILE:=${TUNE_SEARCH_SPACE_FILE:-}}"
+: "${PORT_BUSY_RETRIES:=${TUNE_PORT_BUSY_RETRIES:-3}}"
+: "${PORT_BUSY_WAIT_S:=${TUNE_PORT_BUSY_WAIT_S:-10}}"
+: "${PORT_BUSY_KILL:=${TUNE_PORT_BUSY_KILL:-0}}"
+
+PORT_BUSY_KILL_FLAG=()
+if [[ "$PORT_BUSY_KILL" == "1" ]]; then
+  PORT_BUSY_KILL_FLAG=(--port_busy_kill)
+fi
 
 exec python3 auto_tune.py \
   --repo "$REPO" \
@@ -35,4 +44,8 @@ exec python3 auto_tune.py \
   --eval_timeout "$EVAL_TIMEOUT" \
   --heartbeat_trials "$HEARTBEAT_TRIALS" \
   --heartbeat_interval_s "$HEARTBEAT_INTERVAL_S" \
+  ${SEARCH_SPACE_FILE:+--search_space_file "$SEARCH_SPACE_FILE"} \
+  --port_busy_retries "$PORT_BUSY_RETRIES" \
+  --port_busy_wait_s "$PORT_BUSY_WAIT_S" \
+  "${PORT_BUSY_KILL_FLAG[@]}" \
   --skip_existing

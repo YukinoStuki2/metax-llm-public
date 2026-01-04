@@ -216,6 +216,45 @@ kill "$(cat autotune.watchdog.pid)"
 
 提示：如果容器本身被平台重建/重启，nohup 也无法存活；需要在平台侧设置“失败自动重启/始终运行”，并把启动命令设为 `./run_autotune_forever.sh`。
 
+### 扩展探索组合（推荐：外部 search_space JSON）
+
+默认搜索空间是有限的，跑完就会 `done` 退出。如果你希望在“合理范围内探索更多组合”，推荐用外部 JSON 扩展候选值：
+
+1) 新建一个文件，例如 `tune_search_space.json`：
+
+```json
+{
+  "GPU_MEMORY_UTILIZATION": ["0.965", "0.970", "0.975", "0.980", "0.985"],
+  "VLLM_MAX_NUM_SEQS": ["1024", "1280", "1536"],
+  "VLLM_MAX_NUM_BATCHED_TOKENS": ["131072", "196608", "262144"],
+  "MAX_MODEL_LEN": ["1024", "1536", "2048"]
+}
+```
+
+2) 指定路径并运行（会与默认 search_space 合并；新参数名会自动追加到探索顺序末尾）：
+
+```bash
+export TUNE_SEARCH_SPACE_FILE=./tune_search_space.json
+./auto_tune.sh
+```
+
+如果你想“重新跑一遍”而不是跳过已跑组合，可以：
+- 换一个结果文件：`RESULTS=tune_results_run2.jsonl ./auto_tune.sh`（或直接备份/清空旧文件）
+- 或去掉 `--skip_existing`（不推荐在长任务里误删断点功能）
+
+### 端口 8000 占用（port still in use）
+
+若你看到飞书提示 `port 8000 still in use before start`，通常是容器里有残留服务占用 8000。
+
+现在脚本会自动重试等待释放（默认重试 3 次、每次等 10 秒）。如果你确定占用者就是残留的 `uvicorn serve:app`，可以谨慎开启自动清理：
+
+```bash
+export TUNE_PORT_BUSY_RETRIES=6
+export TUNE_PORT_BUSY_WAIT_S=10
+export TUNE_PORT_BUSY_KILL=1
+./auto_tune.sh
+```
+
 ### systemd 保活（仅适用于裸机/VM，有 systemd 的环境）
 
 如果你的机器支持 systemd，可以参考示例服务文件 [autotune.service.example](autotune.service.example)。

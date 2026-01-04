@@ -39,6 +39,16 @@ export TUNE_EMAIL_KINDS="best,crashed,done"
 # 每隔 N 秒发送一次 heartbeat（含已运行时长）。例如 600=10min。
 # export TUNE_HEARTBEAT_INTERVAL_S=600
 
+# ===== 可选：扩展探索组合 =====
+# 外部搜索空间 JSON（会与默认 search_space 合并）
+# export TUNE_SEARCH_SPACE_FILE=./tune_search_space.json
+
+# ===== 可选：端口占用处理（默认只等待重试，不会杀进程） =====
+# export TUNE_PORT_BUSY_RETRIES=3
+# export TUNE_PORT_BUSY_WAIT_S=10
+# 如你确认占用者是残留 uvicorn serve:app，可谨慎开启：
+# export TUNE_PORT_BUSY_KILL=1
+
 # ===== 可选：加速重复运行（按需打开） =====
 # export SKIP_PIP_INSTALL=1
 # export SKIP_MODEL_DOWNLOAD=1
