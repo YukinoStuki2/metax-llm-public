@@ -10,7 +10,7 @@ COPY download_model.py .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 直接从 ModelScope 下载已融合的模型（线上运行环境不再执行本地融合）
-ENV MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-EN
+ENV MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-LLM
 ENV MODEL_REVISION=master
 
 # Speculative Decoding（可选）
@@ -62,6 +62,7 @@ ENV STOP_STRINGS="<|im_end|>,<|endoftext|>" \
 # serve.py 运行时参数（显式写出默认值，避免环境不一致）
 ENV BATCH_MODE=1 \
         BATCH_CONCURRENCY=512 \
+        VLLM_BATCH_USE_LLM=1 \
         TEMPERATURE=0.0 \
         TOP_P=1.0 \
         TOP_K=1 \

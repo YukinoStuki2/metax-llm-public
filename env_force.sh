@@ -24,7 +24,7 @@ say() { echo "[env_force] $*"; }
 export OMP_NUM_THREADS="4"
 
 # 模型下载/加载
-export MODEL_ID="YukinoStuki/Qwen2.5-0.5B-Plus-EN"
+export MODEL_ID="YukinoStuki/Qwen2.5-0.5B-Plus-LLM"
 export MODEL_REVISION="master"
 export MODEL_DIR="./model/$MODEL_ID"
 
@@ -67,6 +67,7 @@ export STOP_ON_DOUBLE_NEWLINE="0"
 
 export BATCH_MODE="1"
 export BATCH_CONCURRENCY="512"
+export VLLM_BATCH_USE_LLM="1"
 export TEMPERATURE="0.0"
 export TOP_P="1.0"
 export TOP_K="1"
@@ -89,8 +90,8 @@ export MAX_MODEL_LEN="1024"
 
 # 可选：用本地数据集抽样预热（默认关闭）
 export WARMUP_DATA_PATH="./data.jsonl"
-export WARMUP_NUM_SAMPLES="512"
-export WARMUP_NUM_SAMPLES_CAP="512"
+export WARMUP_NUM_SAMPLES="7000"
+export WARMUP_NUM_SAMPLES_CAP="7000"
 export WARMUP_REPEAT="2"
 
 export DEBUG_NET="0"
