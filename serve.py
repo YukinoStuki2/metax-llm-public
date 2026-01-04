@@ -711,6 +711,35 @@ def _maybe_fix_compilation_config(engine_kwargs: dict, err: Exception) -> bool:
     return False
 
 
+def _maybe_fix_load_format(engine_kwargs: dict, err: Exception) -> bool:
+    """修复 vLLM LoadConfig 的 load_format 兼容性问题。
+
+    不同 vLLM 版本/平台插件对 load_format 的合法取值不一致。
+    常见现象：设置 VLLM_LOAD_FORMAT=awq 后，初始化报
+    "'awq' is not a valid loadFormat"。
+
+    处理策略：若检测到此类错误，直接移除 load_format，让 vLLM 使用默认 auto 推断。
+    """
+
+    try:
+        if "load_format" not in engine_kwargs:
+            return False
+        msg = str(err)
+        low = msg.lower()
+        if ("loadconfig" in low or "load config" in low) and ("loadformat" in low or "load_format" in low):
+            if "not a valid" in low or "invalid" in low or "value error" in low:
+                engine_kwargs.pop("load_format", None)
+                print("[vLLM] Removed unsupported load_format; fallback to default auto.")
+                return True
+        if "loadformat" in low and "awq" in low and ("not a valid" in low or "invalid" in low):
+            engine_kwargs.pop("load_format", None)
+            print("[vLLM] Removed unsupported load_format=awq; fallback to default auto.")
+            return True
+    except Exception:
+        return False
+    return False
+
+
 class PredictionRequest(BaseModel):
     # 单条：str；batch：list[str]
     prompt: Union[str, List[str]]
@@ -1161,6 +1190,7 @@ async def lifespan(app: FastAPI):
                 if use_offline_llm:
                     print("vLLM LLM init failed, fallback to AsyncLLMEngine. Error:", e)
                     try:
+                        _maybe_fix_load_format(engine_kwargs, e)
                         app.state.engine = _build_engine()
                         app.state.llm = None
                         app.state.llm_lock = None
@@ -1192,6 +1222,14 @@ async def lifespan(app: FastAPI):
                 if not use_offline_llm:
                     # 1) 若 compilation_config 来自环境变量覆盖，则跨版本尝试自动修正一次类型。
                     if _HAS_MX_DEVICE and _maybe_fix_compilation_config(engine_kwargs, last_err):
+                        try:
+                            app.state.engine = _build_engine()
+                            engine_built = True
+                        except Exception as e2:
+                            last_err = e2
+
+                    # 1.5) 若 load_format 不被当前 vLLM/插件支持，移除后重试一次。
+                    if (not engine_built) and _maybe_fix_load_format(engine_kwargs, last_err):
                         try:
                             app.state.engine = _build_engine()
                             engine_built = True
