@@ -55,12 +55,20 @@ jobs:
         run: |
           set -eux
           mkdir -p ~/.ssh
+          if [[ -z "${{ secrets.GITEE_SSH_PRIVATE_KEY }}" ]]; then
+            echo "ERROR: secrets.GITEE_SSH_PRIVATE_KEY is empty/missing."
+            echo "Please configure it in GitHub repo Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
           printf '%s' "${{ secrets.GITEE_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          chmod 700 ~/.ssh
           for i in 1 2 3 4 5; do
-            ssh-keyscan -t rsa gitee.com >> ~/.ssh/known_hosts 2>/dev/null && break
+            # 避免仅写入 ssh-rsa 导致 Host key verification failed（部分平台已禁用/弱化 rsa）。
+            ssh-keyscan -t ed25519,ecdsa,rsa gitee.com >> ~/.ssh/known_hosts 2>/dev/null && break
             sleep 2
           done
+          test -s ~/.ssh/known_hosts
 
       - name: Push to Gitee
         shell: bash
