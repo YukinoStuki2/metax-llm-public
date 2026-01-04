@@ -24,19 +24,21 @@ from typing import Any, List
 # 一次性配置区（只为 0.5B）
 # =====================
 DEFAULT_MODEL_DIR = "model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM"
-DEFAULT_OUTPUT_DIR = "model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ"
+# 输出目录/仓库名对齐：Qwen2.5-0.5B-Plus-AWQ
+DEFAULT_OUTPUT_DIR = "model/YukinoStuki/Qwen2.5-0.5B-Plus-AWQ"
 
 # 校准集（建议：用与你线上评测相近分布的数据；这里默认用仓库已有的 calib_512.jsonl）
-DEFAULT_CALIB_JSONL = "calib_512.jsonl"
+DEFAULT_CALIB_JSONL = "calib_8192.jsonl"
 
 # 量化参数（偏保守以保准确率）
 AWQ_W_BIT = 4
-AWQ_Q_GROUP_SIZE = 64
+# 兼容性优先：不少 vLLM/平台插件对 AWQ group size=128 支持更稳。
+AWQ_Q_GROUP_SIZE = 128
 AWQ_ZERO_POINT = True
 AWQ_BACKEND = "GEMM"  # AutoAWQ quant backend
 
 # 校准规模（时间无所谓时可适当加大；显存不足就降 max_seq_len 或 num_calib）
-AWQ_NUM_CALIB = 4096
+AWQ_NUM_CALIB = 8192
 AWQ_MAX_SEQ_LEN = 2048
 
 # 一般不量化 lm_head（更稳）
@@ -182,7 +184,10 @@ def main() -> None:
     if not (model_dir / "config.json").exists():
         raise SystemExit(f"model_dir 缺少 config.json：{model_dir}")
     if not calib_jsonl.is_file():
-        raise SystemExit(f"calib_jsonl 不存在：{calib_jsonl}")
+        raise SystemExit(
+            f"calib_jsonl 不存在：{calib_jsonl}\n"
+            "请先生成：N=8192 MAX_LEN=2048 OUT_JSONL=calib_8192.jsonl OUT_TXT=calib_8192.txt python3 sample_calib_from_data.py"
+        )
 
     # 延迟 import：用户只看 --help 时不强制安装重依赖。
     # 避免 transformers 因 torchvision/torch 版本不匹配导致导入崩溃（量化不需要 vision）。
@@ -274,6 +279,19 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     model.save_quantized(str(output_dir), safetensors=True)
     tokenizer.save_pretrained(str(output_dir))
+
+    # 显式写出 quant_config.json：部分加载器/插件依赖该文件；缺失时可能出现输出异常。
+    try:
+        import json
+
+        with (output_dir / "quant_config.json").open("w", encoding="utf-8") as f:
+            f.write(json.dumps(quant_config, ensure_ascii=False, indent=2) + "\n")
+        if mods:
+            with (output_dir / "modules_to_not_convert.txt").open("w", encoding="utf-8") as f:
+                for mname in mods:
+                    f.write(str(mname) + "\n")
+    except Exception as e:
+        print("[AutoAWQ] Warning: failed to write quant_config.json:", e)
 
     print("[AutoAWQ] Saved quantized model to:", str(output_dir))
     print("[AutoAWQ] Done.")
