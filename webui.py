@@ -670,10 +670,10 @@ def create_ui():
 
                     with gr.Tab("RAG"):
                         gr.Markdown(
-                            """默认关闭：不影响你的原评测/后端。开启后：
-- **本地**：上传 txt/md 等纯文本文件（不依赖额外库）
-- **联网**：只会抓取你提供的 URL 内容（不做搜索），用于演示“可联网”\n
-提示：联网抓取受网络与站点限制，演示时建议提前准备本地资料或固定 URL。"""
+                            """
+- **本地**：上传 txt/md 等纯文本文件
+- **联网**：抓取提供的 URL 内容”\n
+"""
                         )
                         rag_enable = gr.Checkbox(value=False, label="启用 RAG（把命中片段拼到 prompt）")
                         rag_allow_network = gr.Checkbox(value=False, label="允许联网抓取 URL（仅抓取下方填写的链接）")
