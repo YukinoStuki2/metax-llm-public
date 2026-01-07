@@ -78,7 +78,6 @@ def create_ui():
 
     with gr.Blocks(
         title="Qwen3-4B Plus WebUI",
-        theme=gr.themes.Soft(),
     ) as demo:
         gr.Markdown(
             f"""
@@ -96,7 +95,6 @@ def create_ui():
                 chatbot = gr.Chatbot(
                     label="对话历史",
                     height=500,
-                    show_copy_button=True,
                 )
                 user_input = gr.Textbox(
                     label="输入问题",
