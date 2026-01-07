@@ -8,7 +8,7 @@ import os
 import sys
 import requests
 import gradio as gr
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Any
 
 # 配置
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
@@ -148,6 +148,32 @@ def create_ui():
             history.append({"role": "user", "content": user_msg})
             return "", history
 
+        def _to_text(content: Any) -> str:
+            """将 Chatbot 消息内容安全转换为字符串。
+
+            兼容 Gradio 6.x：content 可能是 str、list[dict|str]、dict。
+            - 若为 list[dict]：尝试拼接其中的 'text' 或 'content' 字段。
+            - 若为 list[str]：按换行拼接。
+            - 若为 dict：优先取 'text' 或 'content'。
+            - 其他类型：用 str() 兜底。
+            """
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                parts: list[str] = []
+                for seg in content:
+                    if isinstance(seg, dict):
+                        t = seg.get("text") or seg.get("content") or ""
+                        if isinstance(t, str) and t:
+                            parts.append(t)
+                    elif isinstance(seg, str):
+                        parts.append(seg)
+                return "\n".join([p for p in parts if p])
+            if isinstance(content, dict):
+                t = content.get("text") or content.get("content") or ""
+                return t if isinstance(t, str) else str(t)
+            return str(content or "")
+
         def bot_respond(history):
             """处理机器人回复（兼容 Gradio 6.x Chatbot 字典消息格式）"""
             if not history:
@@ -157,7 +183,7 @@ def create_ui():
             user_msg = None
             for msg in reversed(history):
                 if isinstance(msg, dict) and msg.get("role") == "user":
-                    user_msg = msg.get("content", "")
+                    user_msg = _to_text(msg.get("content", ""))
                     break
             if not user_msg:
                 return history
