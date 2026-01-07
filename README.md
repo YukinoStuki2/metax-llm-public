@@ -1,3 +1,26 @@
+# Qwen3-4B Plus 推理服务
+
+本项目提供了 Qwen3-4B Plus 大模型的高性能推理服务,支持 vLLM 加速和 Web 界面。
+
+## 🚀 快速开始
+
+### 使用 WebUI (推荐)
+
+1. **启动推理后端**:
+```bash
+./run_model.sh
+```
+
+2. **启动 Web 界面**:
+```bash
+./start_webui.sh
+```
+
+3. 浏览器访问: http://localhost:7860
+
+📖 详细文档请查看 [README_WEBUI.md](README_WEBUI.md)
+
+---
 ## 融合 Adapter（LoRA/PEFT）到基座模型
 
 如果你的微调仓库里只有 `adapter_model.safetensors`（没有完整的 merged 权重），可以在构建阶段下载基座模型并进行融合。

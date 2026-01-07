@@ -1,0 +1,3 @@
+# WebUI 依赖 (轻量级)
+gradio>=4.0.0
+requests>=2.31.0
