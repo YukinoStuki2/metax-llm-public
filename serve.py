@@ -37,6 +37,28 @@ SYSTEM_PROMPT = (
     "4) 若题目要求代码：只输出最短可用的核心代码/伪代码骨架，不加Markdown围栏，不解释。"
 )
 
+# 运行时可变的系统提示词（WebUI 可动态更新；不要求重启服务）
+_SYSTEM_PROMPT_CURRENT = str(SYSTEM_PROMPT)
+
+
+def get_system_prompt() -> str:
+    v = globals().get("_SYSTEM_PROMPT_CURRENT", SYSTEM_PROMPT)
+    if not isinstance(v, str):
+        return str(SYSTEM_PROMPT)
+    return v
+
+
+def set_system_prompt(new_prompt: str) -> str:
+    global _SYSTEM_PROMPT_CURRENT
+    if not isinstance(new_prompt, str):
+        new_prompt = str(new_prompt)
+    new_prompt = new_prompt.strip()
+    # 防御性限制：避免误操作导致极大 prompt 影响吞吐/内存
+    if len(new_prompt) > 20000:
+        new_prompt = new_prompt[:20000]
+    _SYSTEM_PROMPT_CURRENT = new_prompt
+    return _SYSTEM_PROMPT_CURRENT
+
 MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "32"))
 # 对“需要代码/实现”的题，允许更长输出，避免截断导致 RougeL 偏低。
 # 注意：默认不把全局 MAX_NEW_TOKENS 拉大，以免短答题浪费 token、拖慢吞吐。
@@ -767,6 +789,10 @@ class PredictionResponse(BaseModel):
     response: Union[str, List[str]]
 
 
+class SystemPromptRequest(BaseModel):
+    system_prompt: str
+
+
 def _coerce_log_level(level_name: str, default: int = logging.WARNING) -> int:
     name = (level_name or "").strip().upper()
     return int(getattr(logging, name, default))
@@ -882,7 +908,7 @@ def should_use_vllm() -> bool:
 
 def build_prompt(user_prompt: str) -> str:
     # 兼容：旧逻辑（不会走 chat template 的情况下）
-    return f"{SYSTEM_PROMPT}\n问题：{user_prompt}\n答案："
+    return f"{get_system_prompt()}\n问题：{user_prompt}\n答案："
 
 
 def format_as_chat(tokenizer: Any, user_prompt: str) -> str:
@@ -908,7 +934,7 @@ def format_as_chat(tokenizer: Any, user_prompt: str) -> str:
         # gen   ：'<|im_start|>assistant\n'
         return (
             "<|im_start|>system\n"
-            + SYSTEM_PROMPT
+            + get_system_prompt()
             + "<|im_end|>\n"
             + "<|im_start|>user\n"
             + p
@@ -919,7 +945,7 @@ def format_as_chat(tokenizer: Any, user_prompt: str) -> str:
     messages = [
         {
             "role": "system",
-            "content": SYSTEM_PROMPT,
+            "content": get_system_prompt(),
         },
         {"role": "user", "content": p},
     ]
@@ -1484,6 +1510,8 @@ def info():
         "engine_kind": getattr(app.state, "engine_kind", None),
         "batch_mode": is_batch_mode(),
         "model_dir": os.environ.get("MODEL_DIR") or MODEL_DIR,
+        "system_prompt_len": len(get_system_prompt() or ""),
+        "system_prompt_preview": (get_system_prompt() or "")[:200],
         "defaults": {
             "max_new_tokens": int(MAX_NEW_TOKENS),
             "temperature": float(TEMPERATURE),
@@ -1494,6 +1522,19 @@ def info():
         },
         "env": env_view,
     }
+
+
+@app.get("/system_prompt")
+def get_system_prompt_api():
+    # 快速返回；不触发任何重计算
+    return {"system_prompt": get_system_prompt()}
+
+
+@app.post("/system_prompt")
+def set_system_prompt_api(req: SystemPromptRequest):
+    # 运行时更新 system prompt：立即影响后续 /predict 的 prompt 组装
+    v = set_system_prompt(req.system_prompt)
+    return {"status": "ok", "system_prompt_len": len(v)}
 
 
 @app.post("/predict", response_model=PredictionResponse)

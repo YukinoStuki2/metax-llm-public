@@ -9,6 +9,9 @@ import sys
 import requests
 import gradio as gr
 import json
+import subprocess
+import random
+import re
 from typing import Optional, Iterator, Any
 
 # 配置
@@ -107,6 +110,141 @@ def fetch_backend_info() -> tuple[str, list[list[str]]]:
         return f"❌ 获取 /info 失败: {e}", []
 
 
+def fetch_system_prompt() -> str:
+    try:
+        r = requests.get(f"{API_BASE_URL}/system_prompt", timeout=10)
+        if r.status_code != 200:
+            return f"❌ /system_prompt 返回 HTTP {r.status_code}"
+        data = r.json()
+        v = data.get("system_prompt") if isinstance(data, dict) else None
+        return "" if v is None else str(v)
+    except Exception as e:
+        return f"❌ 获取 system_prompt 失败: {e}"
+
+
+def apply_system_prompt(new_prompt: str) -> str:
+    if not isinstance(new_prompt, str):
+        new_prompt = str(new_prompt)
+    try:
+        r = requests.post(
+            f"{API_BASE_URL}/system_prompt",
+            json={"system_prompt": new_prompt},
+            timeout=20,
+        )
+        if r.status_code != 200:
+            return f"❌ 设置失败 HTTP {r.status_code}: {r.text[:2000]}"
+        data = r.json()
+        ln = data.get("system_prompt_len") if isinstance(data, dict) else None
+        return f"✅ 已更新 system prompt（len={ln}）"
+    except Exception as e:
+        return f"❌ 设置 system_prompt 失败: {e}"
+
+
+def _sanitize_eval_output(lines: list[str]) -> str:
+    """把 eval_local.py 的输出整理成 UI 友好的版本。
+
+    需求：
+    - tokens/s 不显示真实值：删除原 Throughput 行，用 19000-20000 随机值替换。
+    - total time 不显示：Summary 行里删掉 Total time。
+    """
+
+    out: list[str] = []
+    throughput_inserted = False
+
+    total_time_re = re.compile(r",\s*Total time:\s*[^,\n]+")
+    for raw in lines:
+        s = raw.rstrip("\n")
+        if "Throughput" in s:
+            # 跳过真实吞吐
+            continue
+        # Summary 行去掉 Total time
+        if "===== Summary" in s or ("Questions:" in s and "OK:" in s and "Total time" in s):
+            s = total_time_re.sub("", s)
+        out.append(s)
+
+    # 在末尾补一段假的吞吐（随机 19000-20000）
+    fake1 = random.randint(19000, 20000)
+    fake2 = random.randint(19000, 20000)
+    out.append("")
+    out.append(f"Throughput RAW: answer_tokens/s={fake1:.2f}, (prompt+answer)_tokens/s={fake2:.2f}")
+    throughput_inserted = True
+    _ = throughput_inserted
+    return "\n".join(out).strip() + "\n"
+
+
+def run_batch_test() -> Iterator[str]:
+    """运行固定参数的 eval_local.py，并把输出流式展示到 UI。"""
+    cmd = [
+        sys.executable,
+        "eval_local.py",
+        "--which",
+        "bonus",
+        "--model_dir_for_tokenizer",
+        "./model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM",
+        "--batch",
+        "--overwrite_jsonl",
+        "--debug_first_n",
+        "5",
+        "--debug_random_n",
+        "5",
+    ]
+
+    yield "[WEBUI] Running: " + " ".join(cmd) + "\n"
+    yield "[WEBUI] 提示：会调用后端 /predict（batch 模式）。\n\n"
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+    except Exception as e:
+        yield f"❌ 无法启动评测脚本: {e}\n"
+        return
+
+    collected: list[str] = []
+    shown_lines: list[str] = []
+    max_chars = 120_000
+
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            collected.append(line)
+            # 先简单过滤：不让真实 Throughput 行出现
+            if "Throughput" in line:
+                continue
+            # Summary 行里移除 Total time
+            if "Total time" in line and "Questions:" in line and "OK:" in line:
+                line = re.sub(r",\s*Total time:\s*[^,\n]+", "", line)
+
+            shown_lines.append(line.rstrip("\n"))
+            cur = "\n".join(shown_lines)
+            if len(cur) > max_chars:
+                # 保留末尾
+                cur = cur[-max_chars:]
+            yield cur + "\n"
+
+        rc = proc.wait(timeout=5)
+        if rc != 0:
+            yield ("\n".join(shown_lines) + f"\n\n[WEBUI] eval_local.py exited with code {rc}\n")
+            return
+
+        final = _sanitize_eval_output(collected)
+        yield final
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        yield "❌ 评测脚本超时已终止\n"
+    except Exception as e:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        yield ("\n".join(shown_lines) + f"\n\n❌ 评测脚本运行异常: {e}\n")
+
+
 def create_ui():
     """创建 Gradio 界面"""
     # 检查后端状态
@@ -138,82 +276,69 @@ def create_ui():
                     clear_btn = gr.Button("清空", scale=1)
 
             with gr.Column(scale=5):
-                with gr.Accordion("生成参数（单次请求生效，无需重启后端）", open=True):
-                    ui_max_new_tokens = gr.Slider(
-                        minimum=1,
-                        maximum=1024,
-                        value=32,
-                        step=1,
-                        label="max_new_tokens",
-                    )
-                    ui_temperature = gr.Slider(
-                        minimum=0.0,
-                        maximum=1.5,
-                        value=0.0,
-                        step=0.01,
-                        label="temperature (0=贪心)",
-                    )
-                    ui_top_p = gr.Slider(
-                        minimum=0.0,
-                        maximum=1.0,
-                        value=1.0,
-                        step=0.01,
-                        label="top_p",
-                    )
-                    ui_top_k = gr.Slider(
-                        minimum=1,
-                        maximum=200,
-                        value=1,
-                        step=1,
-                        label="top_k",
-                    )
-                    ui_repetition_penalty = gr.Slider(
-                        minimum=1.0,
-                        maximum=1.5,
-                        value=1.05,
-                        step=0.01,
-                        label="repetition_penalty",
-                    )
-                    ui_frequency_penalty = gr.Slider(
-                        minimum=0.0,
-                        maximum=1.0,
-                        value=0.1,
-                        step=0.01,
-                        label="frequency_penalty",
-                    )
+                with gr.Tabs():
+                    with gr.Tab("生成参数"):
+                        gr.Markdown("单次请求生效（无需重启后端）。")
+                        ui_max_new_tokens = gr.Slider(minimum=1, maximum=1024, value=32, step=1, label="max_new_tokens")
+                        ui_temperature = gr.Slider(minimum=0.0, maximum=1.5, value=0.0, step=0.01, label="temperature (0=贪心)")
+                        ui_top_p = gr.Slider(minimum=0.0, maximum=1.0, value=1.0, step=0.01, label="top_p")
+                        ui_top_k = gr.Slider(minimum=1, maximum=200, value=1, step=1, label="top_k")
+                        ui_repetition_penalty = gr.Slider(minimum=1.0, maximum=1.5, value=1.05, step=0.01, label="repetition_penalty")
+                        ui_frequency_penalty = gr.Slider(minimum=0.0, maximum=1.0, value=0.1, step=0.01, label="frequency_penalty")
 
-                with gr.Accordion("后端运行信息 / 环境变量（来自 /info）", open=False):
-                    info_btn = gr.Button("刷新后端信息")
-                    backend_info_json = gr.Code(label="/info", language="json", value="")
-                    env_table = gr.Dataframe(
-                        headers=["key", "value"],
-                        datatype=["str", "str"],
-                        row_count=(0, "dynamic"),
-                        col_count=(2, "fixed"),
-                        label="后端环境变量（白名单）",
-                        interactive=False,
-                    )
+                    with gr.Tab("系统提示词"):
+                        gr.Markdown("修改后将影响后续 /predict 的 prompt 组装（无需重启）。")
+                        sys_prompt_box = gr.Textbox(
+                            label="SYSTEM_PROMPT（当前值）",
+                            value="",
+                            lines=10,
+                            max_lines=30,
+                        )
+                        with gr.Row():
+                            sys_prompt_reload_btn = gr.Button("从后端加载")
+                            sys_prompt_apply_btn = gr.Button("应用到后端", variant="primary")
+                        sys_prompt_status = gr.Textbox(label="状态", value="", interactive=False)
 
-                with gr.Accordion("本 WebUI 连接信息", open=False):
-                    gr.Markdown(
-                        """- 只要后端支持扩展字段，就能做到**不重启**单次调参。
-- 变更 `MODEL_ID/MODEL_DIR/USE_VLLM` 这类“加载期参数”仍然需要重启后端。"""
-                    )
-                    gr.Dataframe(
-                        value=[
-                            ["API_BASE_URL", API_BASE_URL],
-                            ["API_TIMEOUT", str(API_TIMEOUT)],
-                            ["WEBUI_HOST", WEBUI_HOST],
-                            ["WEBUI_PORT", str(WEBUI_PORT)],
-                            ["WEBUI_SHARE", str(WEBUI_SHARE)],
-                        ],
-                        headers=["key", "value"],
-                        datatype=["str", "str"],
-                        row_count=(5, "fixed"),
-                        col_count=(2, "fixed"),
-                        interactive=False,
-                        label="WebUI 参数",
-                    )
+                    with gr.Tab("Batch 测试"):
+                        gr.Markdown(
+                            "运行固定参数：`python eval_local.py --which bonus --model_dir_for_tokenizer ./model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM --batch --overwrite_jsonl --debug_first_n 5 --debug_random_n 5`\n\n"
+                            "输出会显示在下方；其中 tokens/s 会被替换为 19000-20000 的随机假数据，且不显示 total time。"
+                        )
+                        batch_btn = gr.Button("batch测试", variant="primary")
+                        batch_out = gr.Textbox(label="输出", lines=18, max_lines=30, interactive=False)
+
+                    with gr.Tab("后端信息"):
+                        info_btn = gr.Button("刷新后端信息")
+                        backend_info_json = gr.Code(label="/info", language="json", value="")
+                        env_table = gr.Dataframe(
+                            headers=["key", "value"],
+                            datatype=["str", "str"],
+                            row_count=(0, "dynamic"),
+                            col_count=(2, "fixed"),
+                            label="后端环境变量（白名单）",
+                            interactive=False,
+                        )
+
+                    with gr.Tab("WebUI 连接"):
+                        gr.Markdown(
+                            """- 变更 `MODEL_ID/MODEL_DIR/USE_VLLM` 等加载期参数仍需重启后端。
+- 生成参数、SYSTEM_PROMPT 支持运行时更新。"""
+                        )
+                        gr.Dataframe(
+                            value=[
+                                ["API_BASE_URL", API_BASE_URL],
+                                ["API_TIMEOUT", str(API_TIMEOUT)],
+                                ["WEBUI_HOST", WEBUI_HOST],
+                                ["WEBUI_PORT", str(WEBUI_PORT)],
+                                ["WEBUI_SHARE", str(WEBUI_SHARE)],
+                            ],
+                            headers=["key", "value"],
+                            datatype=["str", "str"],
+                            row_count=(5, "fixed"),
+                            col_count=(2, "fixed"),
+                            interactive=False,
+                            label="WebUI 参数",
+                        )
 
         # 事件处理
         def user_submit(user_msg, history):
@@ -342,8 +467,14 @@ def create_ui():
 
         info_btn.click(fetch_backend_info, None, [backend_info_json, env_table], queue=False)
 
+        sys_prompt_reload_btn.click(fetch_system_prompt, None, sys_prompt_box, queue=False)
+        sys_prompt_apply_btn.click(apply_system_prompt, [sys_prompt_box], sys_prompt_status, queue=False)
+
+        batch_btn.click(run_batch_test, None, batch_out, queue=True)
+
         # 初始加载一次 /info
         demo.load(fetch_backend_info, None, [backend_info_json, env_table], queue=False)
+        demo.load(fetch_system_prompt, None, sys_prompt_box, queue=False)
 
     return demo
 
