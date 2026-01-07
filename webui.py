@@ -12,6 +12,8 @@ import json
 import subprocess
 import random
 import re
+import html as _html
+from urllib.parse import urlparse
 from typing import Optional, Iterator, Any
 
 # 配置
@@ -20,6 +22,13 @@ API_TIMEOUT = int(os.environ.get("API_TIMEOUT", "360"))
 WEBUI_PORT = int(os.environ.get("WEBUI_PORT", "7860"))
 WEBUI_HOST = os.environ.get("WEBUI_HOST", "0.0.0.0")
 WEBUI_SHARE = os.environ.get("WEBUI_SHARE", "0") == "1"
+
+# RAG（演示用）：默认关闭，不影响原评测/后端。
+RAG_MAX_DOC_BYTES = int(os.environ.get("RAG_MAX_DOC_BYTES", str(1_000_000)))
+RAG_MAX_URLS = int(os.environ.get("RAG_MAX_URLS", "8"))
+RAG_HTTP_TIMEOUT = int(os.environ.get("RAG_HTTP_TIMEOUT", "10"))
+
+_rag_url_cache: dict[str, str] = {}
 
 
 def _pretty_json(obj: Any) -> str:
@@ -90,6 +99,234 @@ def predict(user_input: str, gen_params: Optional[dict] = None) -> Iterator[str]
         yield f"❌ 请求失败: {str(e)}"
     except Exception as e:
         yield f"❌ 推理出错: {str(e)}"
+
+
+def _safe_read_text_file(path: str) -> str:
+    try:
+        if not path:
+            return ""
+        if not os.path.isfile(path):
+            return ""
+        # 防止加载过大文件拖慢演示
+        if os.path.getsize(path) > RAG_MAX_DOC_BYTES:
+            return ""
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    except Exception:
+        return ""
+
+
+def _strip_html_to_text(s: str) -> str:
+    if not s:
+        return ""
+    # 移除 script/style
+    s = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", s)
+    # 换行相关标签
+    s = re.sub(r"(?i)<br\s*/?>", "\n", s)
+    s = re.sub(r"(?i)</p\s*>", "\n", s)
+    s = re.sub(r"(?i)</div\s*>", "\n", s)
+    # 去标签
+    s = re.sub(r"(?s)<[^>]+>", " ", s)
+    s = _html.unescape(s)
+    # 压缩空白
+    s = re.sub(r"[ \t\r\f\v]+", " ", s)
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    return s.strip()
+
+
+def _fetch_url_text(url: str) -> str:
+    url = (url or "").strip()
+    if not url:
+        return ""
+    if url in _rag_url_cache:
+        return _rag_url_cache[url]
+    try:
+        p = urlparse(url)
+        if p.scheme not in ("http", "https"):
+            return ""
+        r = requests.get(
+            url,
+            timeout=RAG_HTTP_TIMEOUT,
+            headers={"User-Agent": "metax-demo-webui/1.0"},
+        )
+        if r.status_code != 200:
+            return ""
+        raw = r.text
+        text = _strip_html_to_text(raw)
+        # 缓存（限制长度，避免内存无限涨）
+        if len(text) > 200_000:
+            text = text[:200_000]
+        _rag_url_cache[url] = text
+        return text
+    except Exception:
+        return ""
+
+
+def _tokenize_for_retrieval(s: str) -> list[str]:
+    """轻量 tokenization（不依赖 jieba）：
+
+    - 英文/数字/下划线：按词
+    - 中文：按单字
+    """
+
+    s = (s or "").strip()
+    if not s:
+        return []
+
+    tokens: list[str] = []
+    # 先取英文词
+    for w in re.findall(r"[A-Za-z0-9_]+", s):
+        if w:
+            tokens.append(w.lower())
+    # 再取 CJK 单字
+    for ch in s:
+        if "\u4e00" <= ch <= "\u9fff":
+            tokens.append(ch)
+    return tokens
+
+
+def _score_overlap(query_tokens: list[str], chunk_text: str) -> float:
+    if not query_tokens:
+        return 0.0
+    c_tokens = _tokenize_for_retrieval(chunk_text)
+    if not c_tokens:
+        return 0.0
+    qset = set(query_tokens)
+    cset = set(c_tokens)
+    hit = len(qset.intersection(cset))
+    # 简单长度归一（避免超长段落占优）
+    return float(hit) / (1.0 + (len(cset) ** 0.5))
+
+
+def _chunk_text(text: str, *, chunk_size: int = 700, overlap: int = 120) -> list[str]:
+    text = (text or "").strip()
+    if not text:
+        return []
+    # 先按空行切分，保留段落语义
+    paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    chunks: list[str] = []
+    for p in paras:
+        if len(p) <= chunk_size:
+            chunks.append(p)
+            continue
+        i = 0
+        while i < len(p):
+            j = min(len(p), i + chunk_size)
+            seg = p[i:j].strip()
+            if seg:
+                chunks.append(seg)
+            if j >= len(p):
+                break
+            i = max(0, j - overlap)
+    return chunks
+
+
+def build_rag_context(
+    query: str,
+    *,
+    enable_rag: bool,
+    allow_network: bool,
+    urls_text: str,
+    files: Any,
+    top_k: int,
+    max_chars: int,
+) -> tuple[str, str]:
+    """返回 (augmented_prompt, display_text)。
+
+    - augmented_prompt：拼接参考资料后的最终 prompt（发给 /predict）
+    - display_text：UI 展示用（命中文本）
+    """
+
+    query = (query or "").strip()
+    if (not enable_rag) or (not query):
+        return query, ""
+
+    query_tokens = _tokenize_for_retrieval(query)
+    candidates: list[tuple[float, str, str]] = []  # (score, source, chunk)
+
+    # 本地文件
+    file_items = []
+    if isinstance(files, list):
+        file_items = files
+    elif files:
+        file_items = [files]
+
+    for f in file_items[:20]:
+        path = None
+        name = None
+        if isinstance(f, str):
+            path = f
+            name = os.path.basename(f)
+        elif isinstance(f, dict):
+            path = f.get("path") or f.get("name")
+            name = f.get("orig_name") or f.get("name") or (os.path.basename(path) if path else "")
+        else:
+            path = getattr(f, "path", None) or getattr(f, "name", None)
+            name = getattr(f, "orig_name", None) or getattr(f, "name", None) or (os.path.basename(path) if path else "")
+
+        if not path:
+            continue
+        text = _safe_read_text_file(str(path))
+        if not text:
+            continue
+        for idx, ch in enumerate(_chunk_text(text)):
+            s = _score_overlap(query_tokens, ch)
+            if s <= 0:
+                continue
+            candidates.append((s, f"local:{name}#{idx}", ch))
+
+    # 联网 URL（仅抓取用户提供的链接，不做搜索）
+    if allow_network:
+        urls = [u.strip() for u in (urls_text or "").splitlines() if u.strip()]
+        urls = urls[: max(0, int(RAG_MAX_URLS))]
+        for u in urls:
+            text = _fetch_url_text(u)
+            if not text:
+                continue
+            for idx, ch in enumerate(_chunk_text(text)):
+                s = _score_overlap(query_tokens, ch)
+                if s <= 0:
+                    continue
+                candidates.append((s, f"url:{u}#{idx}", ch))
+
+    if not candidates:
+        return query, "（RAG 已开启，但未命中任何资料）"
+
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    top_k = max(1, min(8, int(top_k)))
+    max_chars = max(300, min(6000, int(max_chars)))
+    picked = candidates[:top_k]
+
+    blocks: list[str] = []
+    display_lines: list[str] = []
+    cur_len = 0
+    for i, (_s, src, ch) in enumerate(picked, start=1):
+        # 参考资料块
+        ch = (ch or "").strip()
+        if not ch:
+            continue
+        remain = max_chars - cur_len
+        if remain <= 0:
+            break
+        if len(ch) > remain:
+            ch = ch[:remain]
+        cur_len += len(ch)
+        blocks.append(f"[{i}] ({src})\n{ch}")
+        display_lines.append(f"[{i}] {src}\n{ch}\n")
+
+    context = "\n\n".join(blocks).strip()
+    display = "\n".join(display_lines).strip()
+
+    augmented = (
+        query
+        + "\n\n"
+        + "【参考资料】\n"
+        + context
+        + "\n\n"
+        + "【回答要求】\n"
+        + "优先依据参考资料作答；若资料不足，再给出简短、稳妥的通用回答。不要编造不存在的出处。"
+    )
+    return augmented, display
 
 
 def fetch_backend_info() -> tuple[str, list[list[str]]]:
@@ -307,6 +544,29 @@ def create_ui():
                         batch_btn = gr.Button("batch测试", variant="primary")
                         batch_out = gr.Textbox(label="输出", lines=18, max_lines=30, interactive=False)
 
+                    with gr.Tab("RAG（演示）"):
+                        gr.Markdown(
+                            """默认关闭：不影响你的原评测/后端。开启后：
+- **本地**：上传 txt/md 等纯文本文件（不依赖额外库）
+- **联网**：只会抓取你提供的 URL 内容（不做搜索），用于演示“可联网”\n
+提示：联网抓取受网络与站点限制，演示时建议提前准备本地资料或固定 URL。"""
+                        )
+                        rag_enable = gr.Checkbox(value=False, label="启用 RAG（把命中片段拼到 prompt）")
+                        rag_allow_network = gr.Checkbox(value=False, label="允许联网抓取 URL（仅抓取下方填写的链接）")
+                        rag_urls = gr.Textbox(
+                            label="URL 列表（每行一个，可空）",
+                            placeholder="https://...\nhttps://...",
+                            lines=3,
+                            max_lines=8,
+                        )
+                        rag_files = gr.File(
+                            label="本地资料文件（txt/md，支持多选）",
+                            file_count="multiple",
+                        )
+                        rag_top_k = gr.Slider(minimum=1, maximum=8, value=3, step=1, label="top_k 命中片段")
+                        rag_max_chars = gr.Slider(minimum=300, maximum=6000, value=1800, step=100, label="参考资料最大字符数")
+                        rag_hits = gr.Textbox(label="本次命中片段（展示用）", lines=10, max_lines=18, interactive=False)
+
                     with gr.Tab("后端信息"):
                         info_btn = gr.Button("刷新后端信息")
                         backend_info_json = gr.Code(label="/info", language="json", value="")
@@ -383,10 +643,16 @@ def create_ui():
             top_k,
             repetition_penalty,
             frequency_penalty,
+            enable_rag,
+            allow_network,
+            urls_text,
+            files,
+            rag_topk,
+            rag_maxchars,
         ):
             """处理机器人回复（兼容 Gradio 6.x Chatbot 字典消息格式）"""
             if not history:
-                return history
+                return history, ""
 
             # 找到最后一条用户消息
             user_msg = None
@@ -395,11 +661,22 @@ def create_ui():
                     user_msg = _to_text(msg.get("content", ""))
                     break
             if not user_msg:
-                return history
+                return history, ""
 
             # 若最后不是 assistant 消息或其 content 非字符串，先追加占位（空串），避免 None
             if not (isinstance(history[-1], dict) and history[-1].get("role") == "assistant" and isinstance(history[-1].get("content"), str)):
                 history.append({"role": "assistant", "content": ""})
+
+            # 可选：RAG 增强（仅 WebUI 侧，默认关闭）
+            final_prompt, rag_display = build_rag_context(
+                user_msg,
+                enable_rag=bool(enable_rag),
+                allow_network=bool(allow_network),
+                urls_text=str(urls_text or ""),
+                files=files,
+                top_k=int(rag_topk) if rag_topk is not None else 3,
+                max_chars=int(rag_maxchars) if rag_maxchars is not None else 1800,
+            )
 
             gen_params = {
                 "max_new_tokens": int(max_new_tokens) if max_new_tokens is not None else None,
@@ -411,9 +688,9 @@ def create_ui():
             }
 
             # 调用后端生成，并逐步更新最后一条 assistant 的内容
-            for response in predict(user_msg, gen_params=gen_params):
+            for response in predict(final_prompt, gen_params=gen_params):
                 history[-1]["content"] = response or ""
-                yield history
+                yield history, rag_display
 
         def clear_history():
             """清空对话历史"""
@@ -440,8 +717,14 @@ def create_ui():
                 ui_top_k,
                 ui_repetition_penalty,
                 ui_frequency_penalty,
+                rag_enable,
+                rag_allow_network,
+                rag_urls,
+                rag_files,
+                rag_top_k,
+                rag_max_chars,
             ],
-            chatbot,
+            [chatbot, rag_hits],
         )
 
         user_input.submit(
@@ -459,8 +742,14 @@ def create_ui():
                 ui_top_k,
                 ui_repetition_penalty,
                 ui_frequency_penalty,
+                rag_enable,
+                rag_allow_network,
+                rag_urls,
+                rag_files,
+                rag_top_k,
+                rag_max_chars,
             ],
-            chatbot,
+            [chatbot, rag_hits],
         )
 
         clear_btn.click(clear_history, None, [chatbot, user_input], queue=False)
