@@ -24,7 +24,7 @@ say() { echo "[env_force] $*"; }
 export OMP_NUM_THREADS="4"
 
 # 模型下载/加载
-export MODEL_ID="YukinoStuki/Qwen2.5-0.5B-Plus-LLM"
+export MODEL_ID="YukinoStuki/Qwen3-4B-Plus-LLM"
 export MODEL_REVISION="master"
 export MODEL_DIR="./model/$MODEL_ID"
 
@@ -44,8 +44,8 @@ export MODELSCOPE_API_TOKEN
 
 # serve.py 运行时参数
 export USE_VLLM="true"
-export DISABLE_TOKEN_ROUTING="0"
-export MAX_NEW_TOKENS="64"
+export DISABLE_TOKEN_ROUTING="1"
+export MAX_NEW_TOKENS="512"
 export MAX_NEW_TOKENS_CODE="192"
 export MAX_NEW_TOKENS_CODE_HARD="192"
 export MAX_NEW_TOKENS_CODE_SOFT="96"
@@ -81,18 +81,18 @@ export VLLM_QUANTIZATION=""
 export VLLM_KV_CACHE_DTYPE=""
 export VLLM_LOAD_FORMAT="auto"
 export VLLM_ENFORCE_EAGER="0"
-export VLLM_MAX_NUM_SEQS="1024"
+export VLLM_MAX_NUM_SEQS=""
 export VLLM_MAX_NUM_BATCHED_TOKENS=""
 export VLLM_COMPILATION_CONFIG=""
 
 # 限制最大上下文，避免按超长 config 分配 KV cache
-export MAX_MODEL_LEN="1024"
+export MAX_MODEL_LEN="8192"
 
 # 可选：用本地数据集抽样预热（默认关闭）
 export WARMUP_DATA_PATH="./data.jsonl"
 export WARMUP_NUM_SAMPLES="7000"
 export WARMUP_NUM_SAMPLES_CAP="7000"
-export WARMUP_REPEAT="2"
+export WARMUP_REPEAT="1"
 
 export DEBUG_NET="0"
 
