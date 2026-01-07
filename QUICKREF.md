@@ -36,7 +36,7 @@ tmux kill-session -t backend  # 关闭会话
 ### 性能调优
 ```bash
 # AWQ 量化 (更快)
-MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM-AWQ ./run_model.sh
+MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ ./run_model.sh
 
 # 降低内存占用
 GPU_MEMORY_UTILIZATION=0.70 ./run_model.sh

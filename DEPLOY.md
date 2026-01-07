@@ -1,6 +1,6 @@
 # 沐曦云平台部署指南
 
-本指南帮助你在沐曦 C500 (64GB) 云主机上部署 Qwen3-4B Plus WebUI。
+本指南帮助你在沐曦 C500 (64GB) 云主机上部署 Qwen2.5-0.5B Plus WebUI。
 
 ## 前置要求
 
@@ -169,7 +169,7 @@ AWQ 量化可以显著提升推理速度:
 
 ```bash
 # 修改启动配置
-MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM-AWQ ./run_model.sh
+MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ ./run_model.sh
 ```
 
 ### 调整 GPU 内存占用
@@ -271,7 +271,7 @@ sudo nano /etc/systemd/system/qwen-backend.service
 内容:
 ```ini
 [Unit]
-Description=Qwen3-4B Plus Backend
+Description=Qwen2.5-0.5B Plus Backend
 After=network.target
 
 [Service]
@@ -294,7 +294,7 @@ sudo nano /etc/systemd/system/qwen-webui.service
 内容:
 ```ini
 [Unit]
-Description=Qwen3-4B Plus WebUI
+Description=Qwen2.5-0.5B Plus WebUI
 After=qwen-backend.service
 Requires=qwen-backend.service
 

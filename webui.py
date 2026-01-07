@@ -77,11 +77,11 @@ def create_ui():
     is_healthy, health_status = check_api_health()
 
     with gr.Blocks(
-        title="Qwen3-4B Plus WebUI",
+        title="Qwen2.5-0.5B Plus WebUI",
     ) as demo:
         gr.Markdown(
             f"""
-# 🤖 Qwen3-4B Plus WebUI
+# 🤖 Qwen2.5-0.5B Plus WebUI
 
 **后端地址**: `{API_BASE_URL}`  
 **状态**: {health_status}
@@ -119,7 +119,7 @@ def create_ui():
 **注意事项**:
 - 当前为非流式模式
 - 超时时间: {timeout}s
-- 模型: Qwen3-4B-Plus-LLM
+- 模型: Qwen2.5-0.5B-Plus-LLM
 """.format(
                         timeout=API_TIMEOUT
                     )
@@ -144,21 +144,28 @@ def create_ui():
             """处理用户提交"""
             if not history:
                 history = []
-            history.append([user_msg, None])
+            # Gradio 6.x 使用字典格式
+            history.append({"role": "user", "content": user_msg})
+            history.append({"role": "assistant", "content": None})
             return "", history
 
         def bot_respond(history):
             """处理机器人回复"""
-            if not history or history[-1][1] is not None:
+            if not history or len(history) < 2:
+                return history
+            
+            # 检查最后一条是否是待回复的 assistant 消息
+            if history[-1].get("role") != "assistant" or history[-1].get("content") is not None:
                 return history
 
-            user_msg = history[-1][0]
+            # 获取上一条用户消息
+            user_msg = history[-2].get("content", "")
             bot_msg = ""
 
             # 调用 predict 并逐步更新
             for response in predict(user_msg):
                 bot_msg = response
-                history[-1][1] = bot_msg
+                history[-1]["content"] = bot_msg
                 yield history
 
         def clear_history():
@@ -189,7 +196,7 @@ def create_ui():
 def main():
     """启动 WebUI"""
     print("=" * 60)
-    print("🚀 启动 Qwen3-4B Plus WebUI")
+    print("🚀 启动 Qwen2.5-0.5B Plus WebUI")
     print(f"后端 API: {API_BASE_URL}")
     print(f"监听地址: {WEBUI_HOST}:{WEBUI_PORT}")
     print(f"公开分享: {'是' if WEBUI_SHARE else '否'}")

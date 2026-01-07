@@ -1,8 +1,8 @@
-# Qwen3-4B Plus WebUI 使用指南
+# Qwen2.5-0.5B Plus WebUI 使用指南
 
 ## 简介
 
-这是一个轻量级的 Gradio WebUI,用于方便地与 Qwen3-4B Plus 模型进行交互。
+这是一个轻量级的 Gradio WebUI,用于方便地与 Qwen2.5-0.5B Plus 模型进行交互。
 
 **特点**:
 - 🪶 **轻量级**: 只需 2 个依赖 (gradio + requests),无需复杂配置
@@ -41,7 +41,7 @@
 ./run_model.sh
 
 # 或使用自定义参数
-MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM-AWQ MAX_NEW_TOKENS=64 ./run_model.sh
+MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ MAX_NEW_TOKENS=64 ./run_model.sh
 ```
 
 2. **启动 WebUI** (终端 2):
@@ -115,7 +115,7 @@ pip install -r requirements-webui.txt
 ./run_model.sh
 
 # 或使用 AWQ 量化模型 (更快)
-MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM-AWQ ./run_model.sh
+MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ ./run_model.sh
 ```
 
 **启动 WebUI** (新终端或使用 tmux):
@@ -175,7 +175,7 @@ WebUI 会自动调用 serve.py 的所有优化特性:
 
 ```bash
 # 启用 AWQ 量化
-MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM-AWQ ./run_model.sh
+MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ ./run_model.sh
 
 # 调整生成参数
 MAX_NEW_TOKENS=128 TEMPERATURE=0.0 ./run_model.sh
@@ -241,7 +241,7 @@ tmux attach -t backend
 **解决**:
 ```bash
 # 1. 使用 AWQ 量化模型
-MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM-AWQ ./run_model.sh
+MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ ./run_model.sh
 
 # 2. 减少 max_new_tokens
 MAX_NEW_TOKENS=32 ./run_model.sh
@@ -266,7 +266,7 @@ GPU_MEMORY_UTILIZATION=0.70 ./run_model.sh
 MAX_MODEL_LEN=4096 ./run_model.sh
 
 # 3. 使用量化模型
-MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM-AWQ ./run_model.sh
+MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ ./run_model.sh
 ```
 
 ### 4. 权限错误

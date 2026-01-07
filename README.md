@@ -1,6 +1,6 @@
-# Qwen3-4B Plus 推理服务
+# Qwen2.5-0.5B Plus 推理服务
 
-本项目提供了 Qwen3-4B Plus 大模型的高性能推理服务,支持 vLLM 加速和 Web 界面。
+本项目提供了 Qwen2.5-0.5B Plus 大模型的高性能推理服务,支持 vLLM 加速和 Web 界面。
 
 ## 🚀 快速开始
 
@@ -27,8 +27,8 @@
 
 本项目默认在 Docker 构建阶段执行 [merge_adapter.py](merge_adapter.py)：
 
-- 从 ModelScope 下载基座模型（默认 `Qwen/Qwen3-4B`）
-- 从 Gitee clone 你的 adapter 仓库（默认 `https://gitee.com/yukinostuki/qwen3-4b-plus.git`）
+- 从 ModelScope 下载基座模型（默认 `Qwen/Qwen2.5-0.5B`）
+- 从 Gitee clone 你的 adapter 仓库（默认 `https://gitee.com/yukinostuki/qwen2.5-0.5b-plus.git`）
 - 使用 PEFT 将 adapter 融合到基座模型并导出到 `/app/model/merged`
 - 运行时 `MODEL_DIR=/app/model/merged`
 
@@ -36,7 +36,7 @@
 
 - `ADAPTER_REPO_URL`：adapter 仓库地址（可用 https 或 ssh 地址）
 - `ADAPTER_REPO_REF`：可选，指定分支/Tag/Commit
-- `BASE_MODEL`：ModelScope 基座模型 ID，默认 `Qwen/Qwen3-4B`
+- `BASE_MODEL`：ModelScope 基座模型 ID，默认 `Qwen/Qwen2.5-0.5B`
 - `BASE_REVISION`：基座模型 revision，默认 `master`
 - `MERGED_MODEL_DIR`：融合输出目录，默认 `/app/model/merged`
 
@@ -89,8 +89,8 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 ```bash
 python merge_adapter.py \
-  --base_model Qwen/Qwen3-4B \
-  --adapter_repo_url https://gitee.com/yukinostuki/qwen3-4b-plus.git \
+  --base_model Qwen/Qwen2.5-0.5B \
+  --adapter_repo_url https://gitee.com/yukinostuki/qwen2.5-0.5b-plus.git \
   --output_dir ./merged
 ```
 
@@ -102,7 +102,7 @@ python merge_adapter.py \
 
 ## 默认模型（ModelScope）
 
-当前仓库默认直接从 ModelScope 下载模型权重：`YukinoStuki/Qwen3-4B-Plus-LLM`。
+当前仓库默认直接从 ModelScope 下载模型权重：`YukinoStuki/Qwen2.5-0.5B-Plus-LLM`。
 
 - 构建阶段由 `download_model.py` 下载到 `./model/$MODEL_ID`
 - 运行阶段默认从 `MODEL_DIR=./model/$MODEL_ID` 加载（见 `Dockerfile` / `serve.py`）
@@ -399,7 +399,7 @@ export TUNE_SMTP_SSL=1
 
 ## AWQ 量化（AutoAWQ，覆盖上传同名模型）
 
-说明：部分环境/架构不支持 Marlin kernel，因此此前 compressed-tensors 路线可能无法运行。这里提供 AutoAWQ 量化脚本，输出目录固定为 `model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ`，可直接用上传脚本覆盖同名仓库。
+说明：部分环境/架构不支持 Marlin kernel，因此此前 compressed-tensors 路线可能无法运行。这里提供 AutoAWQ 量化脚本，输出目录固定为 `model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ`，可直接用上传脚本覆盖同名仓库。
 
 1) 安装量化依赖（建议单独虚拟环境；不修改线上 serving 的 requirements.txt）：
 
@@ -420,17 +420,17 @@ pip install --no-deps autoawq==0.2.9
 
 ```bash
 python quantize_awq_llmcompressor.py \
-  --model_dir model/YukinoStuki/Qwen3-4B-Plus-LLM \
+  --model_dir model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM \
   --calib_jsonl calib_512.jsonl \
-  --output_dir model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ
+  --output_dir model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ
 ```
 
 3) 上传并覆盖 ModelScope 上同名仓库：
 
 ```bash
 python upload_model.py \
-  --repo-id YukinoStuki/Qwen3-4B-Plus-LLM-AWQ \
-  --model-dir model/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ \
+  --repo-id YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ \
+  --model-dir model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ \
   --commit-message "overwrite awq (autoawq)"
 ```
 
