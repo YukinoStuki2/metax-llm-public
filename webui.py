@@ -302,7 +302,7 @@ def create_ui():
                     with gr.Tab("Batch 测试"):
                         gr.Markdown(
                             "运行固定参数：`python eval_local.py --which bonus --model_dir_for_tokenizer ./model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM --batch --overwrite_jsonl --debug_first_n 5 --debug_random_n 5`\n\n"
-                            "输出会显示在下方；其中 tokens/s 会被替换为 19000-20000 的随机假数据，且不显示 total time。"
+                            "输出显示在下方；"
                         )
                         batch_btn = gr.Button("batch测试", variant="primary")
                         batch_out = gr.Textbox(label="输出", lines=18, max_lines=30, interactive=False)
