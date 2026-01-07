@@ -207,7 +207,6 @@ def main():
         server_name=WEBUI_HOST,
         server_port=WEBUI_PORT,
         share=WEBUI_SHARE,
-        show_api=False,
     )
 
 
