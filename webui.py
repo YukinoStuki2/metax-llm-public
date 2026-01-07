@@ -23,12 +23,15 @@ WEBUI_PORT = int(os.environ.get("WEBUI_PORT", "7860"))
 WEBUI_HOST = os.environ.get("WEBUI_HOST", "0.0.0.0")
 WEBUI_SHARE = os.environ.get("WEBUI_SHARE", "0") == "1"
 
-# RAG（演示用）：默认关闭，不影响原评测/后端。
+# RAG：默认关闭，不影响原评测/后端。
 RAG_MAX_DOC_BYTES = int(os.environ.get("RAG_MAX_DOC_BYTES", str(1_000_000)))
 RAG_MAX_URLS = int(os.environ.get("RAG_MAX_URLS", "8"))
 RAG_HTTP_TIMEOUT = int(os.environ.get("RAG_HTTP_TIMEOUT", "10"))
+RAG_BAIDU_MAX_RESULTS = int(os.environ.get("RAG_BAIDU_MAX_RESULTS", "5"))
+METAX_URL_DB_PATH = os.environ.get("METAX_URL_DB_PATH", "./metax_url.json")
 
 _rag_url_cache: dict[str, str] = {}
+_metax_url_db_cache: Optional[list[dict[str, Any]]] = None
 
 
 def _pretty_json(obj: Any) -> str:
@@ -162,6 +165,113 @@ def _fetch_url_text(url: str) -> str:
         return ""
 
 
+def _load_metax_url_db() -> list[dict[str, Any]]:
+    global _metax_url_db_cache
+    if _metax_url_db_cache is not None:
+        return _metax_url_db_cache
+    try:
+        p = METAX_URL_DB_PATH
+        if not p:
+            _metax_url_db_cache = []
+            return _metax_url_db_cache
+        if not os.path.isfile(p):
+            _metax_url_db_cache = []
+            return _metax_url_db_cache
+        if os.path.getsize(p) > 5_000_000:
+            _metax_url_db_cache = []
+            return _metax_url_db_cache
+        with open(p, "r", encoding="utf-8", errors="ignore") as f:
+            data = json.load(f)
+        seed_pages = data.get("seed_pages") if isinstance(data, dict) else None
+        rows: list[dict[str, Any]] = []
+        if isinstance(seed_pages, list):
+            for it in seed_pages:
+                if not isinstance(it, dict):
+                    continue
+                url = it.get("url")
+                if isinstance(url, str) and url.startswith("http"):
+                    rows.append(it)
+        _metax_url_db_cache = rows
+        return rows
+    except Exception:
+        _metax_url_db_cache = []
+        return _metax_url_db_cache
+
+
+def _select_metax_urls(query: str, *, max_urls: int) -> list[str]:
+    query = (query or "").strip()
+    if not query:
+        return []
+    db = _load_metax_url_db()
+    if not db:
+        return []
+    qt = _tokenize_for_retrieval(query)
+    scored: list[tuple[float, str]] = []
+    for it in db:
+        url = it.get("url") if isinstance(it, dict) else None
+        if not isinstance(url, str) or not url.startswith("http"):
+            continue
+        summary = it.get("summary") if isinstance(it, dict) else ""
+        section = it.get("section") if isinstance(it, dict) else ""
+        model = it.get("model") if isinstance(it, dict) else ""
+        blob = f"{url} {summary} {section} {model}"
+        s = _score_overlap(qt, blob)
+        scored.append((s, url))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    max_urls = max(0, min(20, int(max_urls)))
+    picked = [u for (s, u) in scored if s > 0][:max_urls]
+    if not picked:
+        # 无匹配时给少量兜底（避免空）
+        picked = [it.get("url") for it in db[: min(5, len(db))] if isinstance(it, dict) and isinstance(it.get("url"), str)]
+    return [u for u in picked if isinstance(u, str)]
+
+
+def _baidu_search_urls(query: str, *, max_results: int) -> list[str]:
+    query = (query or "").strip()
+    if not query:
+        return []
+    max_results = max(1, min(10, int(max_results)))
+    try:
+        r = requests.get(
+            "https://www.baidu.com/s",
+            params={"wd": query},
+            timeout=RAG_HTTP_TIMEOUT,
+            headers={
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.4",
+            },
+        )
+        if r.status_code != 200:
+            return []
+        html = r.text or ""
+        # 直接提取 href（可能为 baidu 跳转链接）
+        hrefs = re.findall(r'href="(http[s]?://[^"]+)"', html)
+        urls: list[str] = []
+        for u in hrefs:
+            u = (u or "").strip()
+            if not u.startswith("http"):
+                continue
+            # 过滤明显的百度站内链接（保留 /link?url= 这类跳转）
+            if "baidu.com/cache" in u:
+                continue
+            if "javascript:" in u:
+                continue
+            urls.append(u)
+            if len(urls) >= max_results:
+                break
+        # 去重
+        dedup: list[str] = []
+        seen: set[str] = set()
+        for u in urls:
+            if u in seen:
+                continue
+            seen.add(u)
+            dedup.append(u)
+        return dedup
+    except Exception:
+        return []
+
+
 def _tokenize_for_retrieval(s: str) -> list[str]:
     """轻量 tokenization（不依赖 jieba）：
 
@@ -226,6 +336,8 @@ def build_rag_context(
     *,
     enable_rag: bool,
     allow_network: bool,
+    use_baidu_search: bool,
+    use_metax_url_db: bool,
     urls_text: str,
     files: Any,
     top_k: int,
@@ -275,10 +387,22 @@ def build_rag_context(
                 continue
             candidates.append((s, f"local:{name}#{idx}", ch))
 
-    # 联网 URL（仅抓取用户提供的链接，不做搜索）
+    # 联网 URL
     if allow_network:
-        urls = [u.strip() for u in (urls_text or "").splitlines() if u.strip()]
+        urls: list[str] = []
+
+        # 规则：联网+搜索开关=用百度搜索结果
+        if use_baidu_search:
+            urls = _baidu_search_urls(query, max_results=RAG_BAIDU_MAX_RESULTS)
+        else:
+            # 规则：联网+不搜索=只用用户提供的 URL；可选叠加 metax_url.json 固定URL库
+            urls = [u.strip() for u in (urls_text or "").splitlines() if u.strip()]
+            if use_metax_url_db:
+                urls.extend(_select_metax_urls(query, max_urls=10))
+
+        # 限制总量
         urls = urls[: max(0, int(RAG_MAX_URLS))]
+
         for u in urls:
             text = _fetch_url_text(u)
             if not text:
@@ -544,7 +668,7 @@ def create_ui():
                         batch_btn = gr.Button("batch测试", variant="primary")
                         batch_out = gr.Textbox(label="输出", lines=18, max_lines=30, interactive=False)
 
-                    with gr.Tab("RAG（演示）"):
+                    with gr.Tab("RAG"):
                         gr.Markdown(
                             """默认关闭：不影响你的原评测/后端。开启后：
 - **本地**：上传 txt/md 等纯文本文件（不依赖额外库）
@@ -553,11 +677,16 @@ def create_ui():
                         )
                         rag_enable = gr.Checkbox(value=False, label="启用 RAG（把命中片段拼到 prompt）")
                         rag_allow_network = gr.Checkbox(value=False, label="允许联网抓取 URL（仅抓取下方填写的链接）")
+                        rag_use_baidu = gr.Checkbox(value=False, label="使用 www.baidu.com 搜索结果（需开启联网）")
                         rag_urls = gr.Textbox(
                             label="URL 列表（每行一个，可空）",
                             placeholder="https://...\nhttps://...",
                             lines=3,
                             max_lines=8,
+                        )
+                        rag_use_metax_urls = gr.Checkbox(
+                            value=True,
+                            label="使用 metax_url.json 固定URL库（默认勾选；需开启联网且关闭百度搜索）",
                         )
                         rag_files = gr.File(
                             label="本地资料文件（txt/md，支持多选）",
@@ -565,7 +694,7 @@ def create_ui():
                         )
                         rag_top_k = gr.Slider(minimum=1, maximum=8, value=3, step=1, label="top_k 命中片段")
                         rag_max_chars = gr.Slider(minimum=300, maximum=6000, value=1800, step=100, label="参考资料最大字符数")
-                        rag_hits = gr.Textbox(label="本次命中片段（展示用）", lines=10, max_lines=18, interactive=False)
+                        rag_hits = gr.Textbox(label="本次命中片段", lines=10, max_lines=18, interactive=False)
 
                     with gr.Tab("后端信息"):
                         info_btn = gr.Button("刷新后端信息")
@@ -645,7 +774,9 @@ def create_ui():
             frequency_penalty,
             enable_rag,
             allow_network,
+            use_baidu_search,
             urls_text,
+            use_metax_url_db,
             files,
             rag_topk,
             rag_maxchars,
@@ -672,6 +803,8 @@ def create_ui():
                 user_msg,
                 enable_rag=bool(enable_rag),
                 allow_network=bool(allow_network),
+                use_baidu_search=bool(use_baidu_search),
+                use_metax_url_db=bool(use_metax_url_db),
                 urls_text=str(urls_text or ""),
                 files=files,
                 top_k=int(rag_topk) if rag_topk is not None else 3,
@@ -719,7 +852,9 @@ def create_ui():
                 ui_frequency_penalty,
                 rag_enable,
                 rag_allow_network,
+                rag_use_baidu,
                 rag_urls,
+                rag_use_metax_urls,
                 rag_files,
                 rag_top_k,
                 rag_max_chars,
@@ -744,7 +879,9 @@ def create_ui():
                 ui_frequency_penalty,
                 rag_enable,
                 rag_allow_network,
+                rag_use_baidu,
                 rag_urls,
+                rag_use_metax_urls,
                 rag_files,
                 rag_top_k,
                 rag_max_chars,

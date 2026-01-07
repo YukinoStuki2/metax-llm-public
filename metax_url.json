@@ -1,0 +1,958 @@
+{
+  "generated_at": "2026-01-08",
+  "root_domains": [
+    "www.metax-tech.com",
+    "metax-tech.com",
+    "developer.metax-tech.com",
+    "recruitment.metax-tech.com"
+  ],
+  "seed_pages": [
+    {
+      "url": "https://www.metax-tech.com/",
+      "lang": "zh-CN",
+      "section": "home",
+      "summary": "官网中文首页（入口页，含产品/解决方案/新闻/招贤纳士/关于等主导航与页脚外链）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/index.html",
+      "lang": "zh-CN",
+      "section": "home",
+      "summary": "官网中文首页（与根路径等价/相近的入口）。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=3",
+      "lang": "zh-CN",
+      "section": "catalog",
+      "summary": "产品与解决方案总览/列表入口（用于继续抓取各产品分类与详情链接）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=3",
+      "lang": "en",
+      "section": "catalog",
+      "summary": "Products & Solutions list entry (English catalog landing; good as crawler seed)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/product.html",
+      "lang": "en",
+      "section": "catalog",
+      "summary": "Products & Solutions landing (English)."
+    },
+
+    {
+      "url": "https://www.metax-tech.com/platform.html?cid=4",
+      "lang": "zh-CN",
+      "section": "platform",
+      "summary": "MXMACA 异构计算平台介绍页（软硬件生态/平台能力概览入口）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/platform.html?cid=4",
+      "lang": "en",
+      "section": "platform",
+      "summary": "MXMACA heterogeneous computing platform (English)."
+    },
+
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=106&id=34",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "GPU加速卡/曦思N系列",
+      "model": "N100",
+      "cid": 106,
+      "id": 34,
+      "summary": "曦思 N100 产品详情页（加速卡：介绍+规格/特性等）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=106&id=39",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "GPU加速卡/曦思N系列",
+      "model": "N260",
+      "cid": 106,
+      "id": 39,
+      "summary": "曦思 N260 产品详情页（加速卡）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=106&id=66",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "GPU加速卡/曦思N系列",
+      "model": "N300",
+      "cid": 106,
+      "id": 66,
+      "summary": "曦思 N300 产品详情页（加速卡）。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=107&id=21",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "GPU加速卡/曦云C系列",
+      "model": "C500",
+      "cid": 107,
+      "id": 21,
+      "summary": "曦云 C500 产品详情页（加速卡）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=107&id=35",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "GPU加速卡/曦云C系列",
+      "model": "C550",
+      "cid": 107,
+      "id": 35,
+      "summary": "曦云 C550 产品详情页（加速卡）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=107&id=36",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "GPU加速卡/曦云C系列",
+      "model": "C500X",
+      "cid": 107,
+      "id": 36,
+      "summary": "曦云 C500X 产品详情页（加速卡）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=107&id=67",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "GPU加速卡/曦云C系列",
+      "model": "C588",
+      "cid": 107,
+      "id": 67,
+      "summary": "曦云 C588 产品详情页（加速卡）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=107&id=68",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "GPU加速卡/曦云C系列",
+      "model": "C600",
+      "cid": 107,
+      "id": 68,
+      "summary": "曦云 C600 产品详情页（加速卡）。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=108&id=20",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "GPU加速卡/曦彩G系列",
+      "model": "G100",
+      "cid": 108,
+      "id": 20,
+      "summary": "曦彩 G100 产品详情页（加速卡/图形渲染方向）。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=110&id=38",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU服务器",
+      "model": "N260 Server",
+      "cid": 110,
+      "id": 38,
+      "summary": "曦思 N260 服务器产品详情页（整机服务器展示/规格/配置等）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=110&id=69",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU服务器",
+      "model": "N300 Server",
+      "cid": 110,
+      "id": 69,
+      "summary": "曦思 N300 服务器产品详情页。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=110&id=37",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU服务器",
+      "model": "C500 Server",
+      "cid": 110,
+      "id": 37,
+      "summary": "曦云 C500 服务器产品详情页。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=110&id=44",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU服务器",
+      "model": "C550 Server",
+      "cid": 110,
+      "id": 44,
+      "summary": "曦云 C550 服务器产品详情页。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=110&id=70",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU服务器",
+      "model": "C588 Server",
+      "cid": 110,
+      "id": 70,
+      "summary": "曦云 C588 服务器产品详情页。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=110&id=71",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU服务器",
+      "model": "C600 Server",
+      "cid": 110,
+      "id": 71,
+      "summary": "曦云 C600 服务器产品详情页。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=111&id=47",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU工作站",
+      "model": "N260 Workstation",
+      "cid": 111,
+      "id": 47,
+      "summary": "曦思 N260 工作站产品详情页。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=112&id=24",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU超节点",
+      "model": "Shanghai Cube Cooled Full Cabinet",
+      "cid": 112,
+      "id": 24,
+      "summary": "Shanghai Cube 液冷整机柜（超节点）详情页。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=112&id=54",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU超节点",
+      "model": "C500X Optical Interconnect Supernode",
+      "cid": 112,
+      "id": 54,
+      "summary": "C500X 光链超节点详情页。"
+    },
+    {
+      "url": "https://www.metax-tech.com/prod.html?cid=112&id=55",
+      "lang": "zh-CN",
+      "section": "product",
+      "subcategory": "服务器/GPU超节点",
+      "model": "C550 3D Mesh Supernode",
+      "cid": 112,
+      "id": 55,
+      "summary": "C550 3D Mesh 超节点详情页。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=106&id=34",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "GPU Accelerator Card / N-Series",
+      "model": "MetaX N100",
+      "cid": 106,
+      "id": 34,
+      "summary": "MetaX N100 product detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=106&id=39",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "GPU Accelerator Card / N-Series",
+      "model": "MetaX N260",
+      "cid": 106,
+      "id": 39,
+      "summary": "MetaX N260 product detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=106&id=66",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "GPU Accelerator Card / N-Series",
+      "model": "MetaX N300",
+      "cid": 106,
+      "id": 66,
+      "summary": "MetaX N300 product detail (English)."
+    },
+
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=107&id=21",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "GPU Accelerator Card / C-Series",
+      "model": "MetaX C500",
+      "cid": 107,
+      "id": 21,
+      "summary": "MetaX C500 product detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=107&id=35",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "GPU Accelerator Card / C-Series",
+      "model": "MetaX C550",
+      "cid": 107,
+      "id": 35,
+      "summary": "MetaX C550 product detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=107&id=36",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "GPU Accelerator Card / C-Series",
+      "model": "MetaX C500X",
+      "cid": 107,
+      "id": 36,
+      "summary": "MetaX C500X product detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=107&id=67",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "GPU Accelerator Card / C-Series",
+      "model": "MetaX C588",
+      "cid": 107,
+      "id": 67,
+      "summary": "MetaX C588 product detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=107&id=68",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "GPU Accelerator Card / C-Series",
+      "model": "MetaX C600",
+      "cid": 107,
+      "id": 68,
+      "summary": "MetaX C600 product detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=108&id=20",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "GPU Accelerator Card / G-Series",
+      "model": "MetaX G100",
+      "cid": 108,
+      "id": 20,
+      "summary": "MetaX G100 product detail (English)."
+    },
+
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=110&id=38",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / GPU Server",
+      "model": "N260 Server",
+      "cid": 110,
+      "id": 38,
+      "summary": "N260 Server detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=110&id=69",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / GPU Server",
+      "model": "N300 Server",
+      "cid": 110,
+      "id": 69,
+      "summary": "N300 Server detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=110&id=37",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / GPU Server",
+      "model": "C500 Server",
+      "cid": 110,
+      "id": 37,
+      "summary": "C500 Server detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=110&id=44",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / GPU Server",
+      "model": "C550 Server",
+      "cid": 110,
+      "id": 44,
+      "summary": "C550 Server detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=110&id=70",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / GPU Server",
+      "model": "C588 Server",
+      "cid": 110,
+      "id": 70,
+      "summary": "C588 Server detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=110&id=71",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / GPU Server",
+      "model": "C600 Server",
+      "cid": 110,
+      "id": 71,
+      "summary": "C600 Server detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=111&id=47",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / GPU Workstation",
+      "model": "N260 Workstation",
+      "cid": 111,
+      "id": 47,
+      "summary": "N260 Workstation detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=112&id=24",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / Supernode",
+      "model": "Cooled Full Cabinet",
+      "cid": 112,
+      "id": 24,
+      "summary": "Cooled full cabinet (Supernode) detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=112&id=54",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / Supernode",
+      "model": "C500X Optical Interconnect Supernode",
+      "cid": 112,
+      "id": 54,
+      "summary": "Optical interconnect supernode detail (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/prod.html?cid=112&id=55",
+      "lang": "en",
+      "section": "product",
+      "subcategory": "Server / Supernode",
+      "model": "C550 3D Mesh Supernode",
+      "cid": 112,
+      "id": 55,
+      "summary": "3D mesh supernode detail (English)."
+    },
+
+    {
+      "url": "https://www.metax-tech.com/solution.html?cid=5",
+      "lang": "zh-CN",
+      "section": "solution",
+      "summary": "解决方案：数字算力底座（DCI 类）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/solution.html?cid=6",
+      "lang": "zh-CN",
+      "section": "solution",
+      "summary": "解决方案：金融行业。"
+    },
+    {
+      "url": "https://www.metax-tech.com/solution.html?cid=7",
+      "lang": "zh-CN",
+      "section": "solution",
+      "summary": "解决方案：医疗健康。"
+    },
+    {
+      "url": "https://www.metax-tech.com/solution.html?cid=9",
+      "lang": "zh-CN",
+      "section": "solution",
+      "summary": "解决方案：能源行业。"
+    },
+    {
+      "url": "https://www.metax-tech.com/solution.html?cid=8",
+      "lang": "zh-CN",
+      "section": "solution",
+      "summary": "解决方案：教科研。"
+    },
+    {
+      "url": "https://www.metax-tech.com/solution.html?cid=10",
+      "lang": "zh-CN",
+      "section": "solution",
+      "summary": "解决方案：交通行业。"
+    },
+    {
+      "url": "https://www.metax-tech.com/solution.html?cid=57",
+      "lang": "zh-CN",
+      "section": "solution",
+      "summary": "解决方案：大文娱/数字娱乐。"
+    },
+    {
+      "url": "https://www.metax-tech.com/solution.html?cid=73",
+      "lang": "zh-CN",
+      "section": "solution",
+      "summary": "解决方案：X（其它行业）。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/en/goods/solution.html?cid=5",
+      "lang": "en",
+      "section": "solution",
+      "summary": "Solution: Digital Computing Infrastructure (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/solution.html?cid=6",
+      "lang": "en",
+      "section": "solution",
+      "summary": "Solution: Finance (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/solution.html?cid=7",
+      "lang": "en",
+      "section": "solution",
+      "summary": "Solution: Healthcare (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/solution.html?cid=9",
+      "lang": "en",
+      "section": "solution",
+      "summary": "Solution: Energy (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/solution.html?cid=8",
+      "lang": "en",
+      "section": "solution",
+      "summary": "Solution: Education & Research (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/solution.html?cid=10",
+      "lang": "en",
+      "section": "solution",
+      "summary": "Solution: Transportation (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/solution.html?cid=57",
+      "lang": "en",
+      "section": "solution",
+      "summary": "Solution: Digital Entertainment (English)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/goods/solution.html?cid=73",
+      "lang": "en",
+      "section": "solution",
+      "summary": "Solution: X (Other Industry) (English)."
+    },
+
+    {
+      "url": "https://www.metax-tech.com/news.html?cid=11",
+      "lang": "zh-CN",
+      "section": "news",
+      "subcategory": "企业新闻",
+      "summary": "新闻中心列表：企业新闻（列表页，包含 ndetail 详情链接与分页）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/news.html?cid=76",
+      "lang": "zh-CN",
+      "section": "news",
+      "subcategory": "媒体报道",
+      "summary": "新闻中心列表：媒体报道（列表页，包含详情链接与分页）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/news.html?cid=77",
+      "lang": "zh-CN",
+      "section": "news",
+      "subcategory": "智算芯闻",
+      "summary": "新闻中心列表：智算芯闻/技术类栏目（列表页，包含详情链接与分页）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/news.html?page=2",
+      "lang": "zh-CN",
+      "section": "news",
+      "subcategory": "企业新闻分页示例",
+      "summary": "新闻中心分页示例：page=2（用于批量枚举历史新闻）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/news.html?page=12",
+      "lang": "zh-CN",
+      "section": "news",
+      "subcategory": "企业新闻分页示例",
+      "summary": "新闻中心分页示例：page=12（用于批量枚举历史新闻）。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/ndetail/12505.html",
+      "lang": "zh-CN",
+      "section": "news_detail",
+      "summary": "新闻详情示例（ndetail 详情页：单条新闻正文）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/ndetail/12504.html",
+      "lang": "zh-CN",
+      "section": "news_detail",
+      "summary": "新闻详情示例（ndetail 详情页）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/ndetail/12503.html",
+      "lang": "zh-CN",
+      "section": "news_detail",
+      "summary": "新闻详情示例（ndetail 详情页）。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/en/about/news.html?cid=77",
+      "lang": "en",
+      "section": "news",
+      "subcategory": "Company News",
+      "summary": "News list (English): Company News (listing + pagination + detail links)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/about/news.html?cid=78",
+      "lang": "en",
+      "section": "news",
+      "subcategory": "Media Coverage",
+      "summary": "News list (English): Media Coverage."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/about/news.html?cid=79",
+      "lang": "en",
+      "section": "news",
+      "subcategory": "MetaX Technical Blog",
+      "summary": "News list (English): Technical Blog."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/ndetail/12544.html",
+      "lang": "en",
+      "section": "news_detail",
+      "summary": "News detail (English path): ndetail page example."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/ndetail/12533.html",
+      "lang": "en",
+      "section": "news_detail",
+      "summary": "News detail (English path): ndetail page example."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/ndetail/12475.html",
+      "lang": "en",
+      "section": "news_detail",
+      "summary": "News detail (English path): ndetail page example."
+    },
+
+    {
+      "url": "https://www.metax-tech.com/about.html",
+      "lang": "zh-CN",
+      "section": "about",
+      "summary": "关于沐曦股份（公司介绍/文化/里程碑/社会责任/核心团队等集中页）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/contact.html",
+      "lang": "zh-CN",
+      "section": "about",
+      "summary": "联系我们（中文）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/en/about/about.html",
+      "lang": "en",
+      "section": "about",
+      "summary": "About METAX (Introduction/Culture/Milestones/CSR/Contact sections on one page)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/about/contact.html",
+      "lang": "en",
+      "section": "about",
+      "summary": "Contact Us (English)."
+    },
+
+    {
+      "url": "https://www.metax-tech.com/join.html",
+      "lang": "zh-CN",
+      "section": "careers",
+      "summary": "加入沐曦股份（招贤纳士入口；跳转社会/校园招聘站点）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/join2.html",
+      "lang": "zh-CN",
+      "section": "careers",
+      "summary": "生活在沐曦股份（雇主品牌/环境等内容页）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/en/about/join.html",
+      "lang": "en",
+      "section": "careers",
+      "summary": "Join Us (English careers entry)."
+    },
+    {
+      "url": "https://www.metax-tech.com/en/about/join2.html",
+      "lang": "en",
+      "section": "careers",
+      "summary": "Living in METAX (English employer branding)."
+    },
+    {
+      "url": "https://recruitment.metax-tech.com/",
+      "lang": "zh-CN",
+      "section": "careers_external",
+      "summary": "招聘站点（社会/校园招聘入口，来自 join 页外链）。"
+    },
+
+    {
+      "url": "https://www.metax-tech.com/serve.html",
+      "lang": "zh-CN",
+      "section": "support",
+      "summary": "支持与服务/资料下载入口（表单页面；也是开发者相关入口之一）。"
+    },
+    {
+      "url": "https://www.metax-tech.com/en/service/serve.html",
+      "lang": "en",
+      "section": "support",
+      "summary": "Support and Services (English) / Download request form."
+    },
+
+    {
+      "url": "https://www.metax-tech.com/statement.html",
+      "lang": "zh-CN",
+      "section": "legal",
+      "summary": "法律声明（中文）。"
+    },
+    {
+      "url": "https://metax-tech.com/en/index/statement.html",
+      "lang": "en",
+      "section": "legal",
+      "summary": "Legal Statement (English)."
+    },
+
+    {
+      "url": "https://developer.metax-tech.com/",
+      "lang": "zh-CN",
+      "section": "developer",
+      "summary": "开发者社区主站入口（通常为论坛/聚合页；适合作为开发者内容抓取种子）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/?tab=share",
+      "lang": "zh-CN",
+      "section": "developer_forum",
+      "summary": "开发者论坛列表视图（tab=share；用于抓取帖子/分类）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/categories/54",
+      "lang": "zh-CN",
+      "section": "developer_forum",
+      "summary": "论坛分类页示例（categories/54）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/categories/55",
+      "lang": "zh-CN",
+      "section": "developer_forum",
+      "summary": "论坛分类页示例（categories/55）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/categories/56",
+      "lang": "zh-CN",
+      "section": "developer_forum",
+      "summary": "论坛分类页示例（categories/56）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/categories/57",
+      "lang": "zh-CN",
+      "section": "developer_forum",
+      "summary": "论坛分类页示例（categories/57）。"
+    },
+
+    {
+      "url": "https://developer.metax-tech.com/softnova",
+      "lang": "zh-CN",
+      "section": "developer_download",
+      "summary": "软件下载/SoftNova 入口（软件/驱动/工具等下载聚合页，可能为 SPA）。"
+    },
+
+    {
+      "url": "https://developer.metax-tech.com/blog/117",
+      "lang": "zh-CN",
+      "section": "developer_blog",
+      "summary": "开发者博客文章示例（blog/117）。"
+    },
+
+    {
+      "url": "https://developer.metax-tech.com/api/client/document/preview/376/index.html",
+      "lang": "zh-CN",
+      "section": "developer_docs",
+      "summary": "文档预览：曦云系列通用计算 GPU 用户指南（目录/章节导航）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/api/client/document/preview/378/index.html",
+      "lang": "zh-CN",
+      "section": "developer_docs",
+      "summary": "文档预览：曦云系列通用计算 GPU 运行时 API 编程指南（目录/章节导航）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/api/client/document/preview/567/C500_RuntimeAPIProgrammingGuide_CN.html",
+      "lang": "zh-CN",
+      "section": "developer_docs",
+      "summary": "文档预览：运行时 API 编程指南（C500 相关章节页面）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/api/client/document/preview/909/split_files/macart_lmdeploy.html",
+      "lang": "zh-CN",
+      "section": "developer_docs",
+      "summary": "文档预览：MacaRT-LMDeploy 推理使用章节页（split_files 形式）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/api/client/document/preview/897/k8s/02_start.html",
+      "lang": "zh-CN",
+      "section": "developer_docs",
+      "summary": "文档预览：曦云系列通用 GPU 云原生参考手册（k8s 安装/维护章节页）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/api/client/document/preview/864/split_files/MacaRT_LMDeploy.html",
+      "lang": "zh-CN",
+      "section": "developer_docs",
+      "summary": "文档预览：MacaRT-LMDeploy 相关页面（split_files 形式，示例）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/api/client/document/preview/334/C500_MacaRT_MacaRuntime_UniRef.html",
+      "lang": "zh-CN",
+      "section": "developer_docs",
+      "summary": "文档预览：MacaRuntime 统一参考/手册类页面（示例）。"
+    },
+    {
+      "url": "https://developer.metax-tech.com/api/client/document/preview/888/C500_MacaRuntime_UserManual.html",
+      "lang": "zh-CN",
+      "section": "developer_docs",
+      "summary": "文档预览：C500 MacaRuntime 用户手册（示例）。"
+    },
+
+    {
+      "url": "https://gitee.com/",
+      "lang": "zh-CN",
+      "section": "external",
+      "summary": "官网页脚常见外链：Gitee（通常用于开源/镜像/代码托管入口）。"
+    },
+    {
+      "url": "https://github.com/",
+      "lang": "en",
+      "section": "external",
+      "summary": "官网页脚常见外链：GitHub（通常用于开源/镜像/代码托管入口）。"
+    },
+    {
+      "url": "https://beian.miit.gov.cn/",
+      "lang": "zh-CN",
+      "section": "external",
+      "summary": "备案信息查询站点（官网页脚外链）。"
+    }
+  ],
+  "url_templates": [
+    {
+      "pattern": "https://www.metax-tech.com/prod.html?cid={cid}&id={id}",
+      "purpose": "产品详情（中文）",
+      "crawl_hint": "从 prod.html?cid=3 或任一产品页导航中枚举 cid/id；对每个详情页抽取规格、特性、应用场景等。"
+    },
+    {
+      "pattern": "https://www.metax-tech.com/en/goods/prod.html?cid={cid}&id={id}",
+      "purpose": "产品详情（英文）",
+      "crawl_hint": "英文路径对应同一 cid/id；可用于英文语料补充。"
+    },
+    {
+      "pattern": "https://www.metax-tech.com/solution.html?cid={cid}",
+      "purpose": "行业解决方案（中文）",
+      "crawl_hint": "cid 常见值：5/6/7/8/9/10/57/73（也可从导航继续发现）。"
+    },
+    {
+      "pattern": "https://www.metax-tech.com/en/goods/solution.html?cid={cid}",
+      "purpose": "行业解决方案（英文）",
+      "crawl_hint": "与中文 cid 对应；适合英文语料补充。"
+    },
+    {
+      "pattern": "https://www.metax-tech.com/news.html?cid={cid}",
+      "purpose": "新闻列表（中文）",
+      "crawl_hint": "cid 常见值：11 企业新闻、76 媒体报道、77 智算芯闻；列表页抽取 ndetail 链接并翻页。"
+    },
+    {
+      "pattern": "https://www.metax-tech.com/news.html?page={page}",
+      "purpose": "新闻列表分页（中文）",
+      "crawl_hint": "分页参数 page=2..N；用于批量抓取历史新闻列表（配合 ndetail 抽取正文）。"
+    },
+    {
+      "pattern": "https://www.metax-tech.com/ndetail/{id}.html",
+      "purpose": "新闻详情（中文）",
+      "crawl_hint": "从 news 列表页解析出 ndetail/{id}.html；对每条详情抽取标题/日期/正文/图片说明。"
+    },
+    {
+      "pattern": "https://www.metax-tech.com/en/about/news.html?cid={cid}",
+      "purpose": "新闻列表（英文入口路径）",
+      "crawl_hint": "cid 常见值：77/78/79（Company News / Media Coverage / Technical Blog）。"
+    },
+    {
+      "pattern": "https://www.metax-tech.com/en/ndetail/{id}.html",
+      "purpose": "新闻详情（英文路径）",
+      "crawl_hint": "与 ndetail 类似，但位于 /en/ndetail/；可做补充抓取。"
+    },
+    {
+      "pattern": "https://developer.metax-tech.com/api/client/document/preview/{doc_id}/index.html",
+      "purpose": "开发者文档预览（目录型）",
+      "crawl_hint": "index.html 通常提供目录；继续抓取下一层章节链接。"
+    },
+    {
+      "pattern": "https://developer.metax-tech.com/api/client/document/preview/{doc_id}/split_files/{page}.html",
+      "purpose": "开发者文档预览（split_files 章节型）",
+      "crawl_hint": "常见于长文档拆分；从目录页提取 split_files 下的章节列表。"
+    }
+  ],
+  "known_ids": {
+    "products": {
+      "gpu_accelerator_card": {
+        "N_series": [
+          { "cid": 106, "id": 34, "model": "N100" },
+          { "cid": 106, "id": 39, "model": "N260" },
+          { "cid": 106, "id": 66, "model": "N300" }
+        ],
+        "C_series": [
+          { "cid": 107, "id": 21, "model": "C500" },
+          { "cid": 107, "id": 35, "model": "C550" },
+          { "cid": 107, "id": 36, "model": "C500X" },
+          { "cid": 107, "id": 67, "model": "C588" },
+          { "cid": 107, "id": 68, "model": "C600" }
+        ],
+        "G_series": [
+          { "cid": 108, "id": 20, "model": "G100" }
+        ]
+      },
+      "server": {
+        "gpu_server": [
+          { "cid": 110, "id": 38, "model": "N260 Server" },
+          { "cid": 110, "id": 69, "model": "N300 Server" },
+          { "cid": 110, "id": 37, "model": "C500 Server" },
+          { "cid": 110, "id": 44, "model": "C550 Server" },
+          { "cid": 110, "id": 70, "model": "C588 Server" },
+          { "cid": 110, "id": 71, "model": "C600 Server" }
+        ],
+        "gpu_workstation": [
+          { "cid": 111, "id": 47, "model": "N260 Workstation" }
+        ],
+        "supernode": [
+          { "cid": 112, "id": 24, "model": "Cooled Full Cabinet" },
+          { "cid": 112, "id": 54, "model": "C500X Optical Interconnect Supernode" },
+          { "cid": 112, "id": 55, "model": "C550 3D Mesh Supernode" }
+        ]
+      }
+    },
+    "solutions": [5, 6, 7, 8, 9, 10, 57, 73],
+    "news_categories_zh": { "company_news": 11, "media_coverage": 76, "tech_news": 77 },
+    "news_categories_en": { "company_news": 77, "media_coverage": 78, "technical_blog": 79 }
+  },
+  "crawl_recommendation": {
+    "allowed_domains": [
+      "www.metax-tech.com",
+      "metax-tech.com",
+      "developer.metax-tech.com",
+      "recruitment.metax-tech.com"
+    ],
+    "priority_order": [
+      "catalog/catalog landing",
+      "product detail pages",
+      "solution pages",
+      "news list pages -> news detail",
+      "developer docs (preview/*)",
+      "developer blog/forum"
+    ],
+    "anti_duplication_notes": [
+      "优先统一使用 https://www.metax-tech.com/ 和 https://www.metax-tech.com/en/ 两套路径，避免同一内容多路径重复抓取。",
+      "新闻分页既存在 cid=xx 形式也存在 page=xx 形式，建议以列表页解析到的真实分页链接为准。",
+      "developer.metax-tech.com 部分页面为 SPA，需用真实页面请求/渲染或抓取其可访问的 document/preview 接口。"
+    ]
+  }
+}
