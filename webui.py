@@ -8,6 +8,7 @@ import os
 import sys
 import requests
 import gradio as gr
+import json
 from typing import Optional, Iterator, Any
 
 # 配置
@@ -16,6 +17,13 @@ API_TIMEOUT = int(os.environ.get("API_TIMEOUT", "360"))
 WEBUI_PORT = int(os.environ.get("WEBUI_PORT", "7860"))
 WEBUI_HOST = os.environ.get("WEBUI_HOST", "0.0.0.0")
 WEBUI_SHARE = os.environ.get("WEBUI_SHARE", "0") == "1"
+
+
+def _pretty_json(obj: Any) -> str:
+    try:
+        return json.dumps(obj, ensure_ascii=False, indent=2)
+    except Exception:
+        return str(obj)
 
 
 def check_api_health() -> tuple[bool, str]:
@@ -34,8 +42,10 @@ def check_api_health() -> tuple[bool, str]:
         return False, f"❌ 健康检查失败: {str(e)}"
 
 
-def predict(user_input: str, history: Optional[list] = None) -> Iterator[str]:
+def predict(user_input: str, gen_params: Optional[dict] = None) -> Iterator[str]:
     """调用后端 API 进行推理"""
+    if not isinstance(user_input, str):
+        user_input = str(user_input)
     if not user_input or not user_input.strip():
         yield "⚠️ 请输入问题"
         return
@@ -47,10 +57,18 @@ def predict(user_input: str, history: Optional[list] = None) -> Iterator[str]:
         return
 
     try:
+        payload = {"prompt": user_input.strip()}
+        if isinstance(gen_params, dict):
+            # 仅透传非 None 的参数，避免污染默认行为
+            for k, v in gen_params.items():
+                if v is None:
+                    continue
+                payload[k] = v
+
         # 调用 /predict 接口
         response = requests.post(
             f"{API_BASE_URL}/predict",
-            json={"prompt": user_input.strip()},
+            json=payload,
             timeout=API_TIMEOUT,
         )
         response.raise_for_status()
@@ -71,14 +89,30 @@ def predict(user_input: str, history: Optional[list] = None) -> Iterator[str]:
         yield f"❌ 推理出错: {str(e)}"
 
 
+def fetch_backend_info() -> tuple[str, list[list[str]]]:
+    """获取后端 /info 信息，并转换为适合 UI 展示的数据。"""
+    try:
+        r = requests.get(f"{API_BASE_URL}/info", timeout=10)
+        if r.status_code != 200:
+            return f"❌ /info 返回 HTTP {r.status_code}", []
+        info = r.json()
+        env_map = info.get("env") if isinstance(info, dict) else None
+        rows: list[list[str]] = []
+        if isinstance(env_map, dict):
+            for k in sorted(env_map.keys()):
+                v = env_map.get(k)
+                rows.append([str(k), "" if v is None else str(v)])
+        return _pretty_json(info), rows
+    except Exception as e:
+        return f"❌ 获取 /info 失败: {e}", []
+
+
 def create_ui():
     """创建 Gradio 界面"""
     # 检查后端状态
     is_healthy, health_status = check_api_health()
 
-    with gr.Blocks(
-        title="Qwen2.5-0.5B Plus WebUI",
-    ) as demo:
+    with gr.Blocks(title="Qwen2.5-0.5B Plus WebUI") as demo:
         gr.Markdown(
             f"""
 # 🤖 Qwen2.5-0.5B Plus WebUI
@@ -92,52 +126,94 @@ def create_ui():
 
         with gr.Row():
             with gr.Column(scale=7):
-                chatbot = gr.Chatbot(
-                    label="对话历史",
-                    height=500,
-                )
+                chatbot = gr.Chatbot(label="对话", height=520)
                 user_input = gr.Textbox(
-                    label="输入问题",
-                    placeholder="请输入你的问题...",
+                    label="输入",
+                    placeholder="输入问题后回车或点击发送…",
                     lines=3,
                     max_lines=10,
                 )
-
                 with gr.Row():
-                    submit_btn = gr.Button("🚀 发送", variant="primary", scale=2)
-                    clear_btn = gr.Button("🗑️ 清空", scale=1)
+                    submit_btn = gr.Button("发送", variant="primary", scale=2)
+                    clear_btn = gr.Button("清空", scale=1)
 
-            with gr.Column(scale=3):
-                gr.Markdown("### ℹ️ 使用说明")
-                gr.Markdown(
-                    """
-1. 在输入框输入问题
-2. 点击「发送」或按 Enter
-3. 等待模型推理完成
-4. 查看回答
-
-**注意事项**:
-- 当前为非流式模式
-- 超时时间: {timeout}s
-- 模型: Qwen2.5-0.5B-Plus-LLM
-""".format(
-                        timeout=API_TIMEOUT
+            with gr.Column(scale=5):
+                with gr.Accordion("生成参数（单次请求生效，无需重启后端）", open=True):
+                    ui_max_new_tokens = gr.Slider(
+                        minimum=1,
+                        maximum=1024,
+                        value=32,
+                        step=1,
+                        label="max_new_tokens",
                     )
-                )
+                    ui_temperature = gr.Slider(
+                        minimum=0.0,
+                        maximum=1.5,
+                        value=0.0,
+                        step=0.01,
+                        label="temperature (0=贪心)",
+                    )
+                    ui_top_p = gr.Slider(
+                        minimum=0.0,
+                        maximum=1.0,
+                        value=1.0,
+                        step=0.01,
+                        label="top_p",
+                    )
+                    ui_top_k = gr.Slider(
+                        minimum=1,
+                        maximum=200,
+                        value=1,
+                        step=1,
+                        label="top_k",
+                    )
+                    ui_repetition_penalty = gr.Slider(
+                        minimum=1.0,
+                        maximum=1.5,
+                        value=1.05,
+                        step=0.01,
+                        label="repetition_penalty",
+                    )
+                    ui_frequency_penalty = gr.Slider(
+                        minimum=0.0,
+                        maximum=1.0,
+                        value=0.1,
+                        step=0.01,
+                        label="frequency_penalty",
+                    )
 
-                # 添加后端信息
-                gr.Markdown("### 🔧 后端配置")
-                backend_info = gr.Textbox(
-                    label="API 地址",
-                    value=API_BASE_URL,
-                    interactive=False,
-                )
-                health_btn = gr.Button("🔄 检查健康状态")
-                health_output = gr.Textbox(
-                    label="健康状态",
-                    value=health_status,
-                    interactive=False,
-                )
+                with gr.Accordion("后端运行信息 / 环境变量（来自 /info）", open=False):
+                    info_btn = gr.Button("刷新后端信息")
+                    backend_info_json = gr.Code(label="/info", language="json", value="")
+                    env_table = gr.Dataframe(
+                        headers=["key", "value"],
+                        datatype=["str", "str"],
+                        row_count=(0, "dynamic"),
+                        col_count=(2, "fixed"),
+                        label="后端环境变量（白名单）",
+                        interactive=False,
+                    )
+
+                with gr.Accordion("本 WebUI 连接信息", open=False):
+                    gr.Markdown(
+                        """- 只要后端支持扩展字段，就能做到**不重启**单次调参。
+- 变更 `MODEL_ID/MODEL_DIR/USE_VLLM` 这类“加载期参数”仍然需要重启后端。"""
+                    )
+                    gr.Dataframe(
+                        value=[
+                            ["API_BASE_URL", API_BASE_URL],
+                            ["API_TIMEOUT", str(API_TIMEOUT)],
+                            ["WEBUI_HOST", WEBUI_HOST],
+                            ["WEBUI_PORT", str(WEBUI_PORT)],
+                            ["WEBUI_SHARE", str(WEBUI_SHARE)],
+                        ],
+                        headers=["key", "value"],
+                        datatype=["str", "str"],
+                        row_count=(5, "fixed"),
+                        col_count=(2, "fixed"),
+                        interactive=False,
+                        label="WebUI 参数",
+                    )
 
         # 事件处理
         def user_submit(user_msg, history):
@@ -174,7 +250,15 @@ def create_ui():
                 return t if isinstance(t, str) else str(t)
             return str(content or "")
 
-        def bot_respond(history):
+        def bot_respond(
+            history,
+            max_new_tokens,
+            temperature,
+            top_p,
+            top_k,
+            repetition_penalty,
+            frequency_penalty,
+        ):
             """处理机器人回复（兼容 Gradio 6.x Chatbot 字典消息格式）"""
             if not history:
                 return history
@@ -192,8 +276,17 @@ def create_ui():
             if not (isinstance(history[-1], dict) and history[-1].get("role") == "assistant" and isinstance(history[-1].get("content"), str)):
                 history.append({"role": "assistant", "content": ""})
 
+            gen_params = {
+                "max_new_tokens": int(max_new_tokens) if max_new_tokens is not None else None,
+                "temperature": float(temperature) if temperature is not None else None,
+                "top_p": float(top_p) if top_p is not None else None,
+                "top_k": int(top_k) if top_k is not None else None,
+                "repetition_penalty": float(repetition_penalty) if repetition_penalty is not None else None,
+                "frequency_penalty": float(frequency_penalty) if frequency_penalty is not None else None,
+            }
+
             # 调用后端生成，并逐步更新最后一条 assistant 的内容
-            for response in predict(user_msg):
+            for response in predict(user_msg, gen_params=gen_params):
                 history[-1]["content"] = response or ""
                 yield history
 
@@ -208,16 +301,49 @@ def create_ui():
 
         # 绑定事件
         submit_btn.click(
-            user_submit, [user_input, chatbot], [user_input, chatbot], queue=False
-        ).then(bot_respond, chatbot, chatbot)
+            user_submit,
+            [user_input, chatbot],
+            [user_input, chatbot],
+            queue=False,
+        ).then(
+            bot_respond,
+            [
+                chatbot,
+                ui_max_new_tokens,
+                ui_temperature,
+                ui_top_p,
+                ui_top_k,
+                ui_repetition_penalty,
+                ui_frequency_penalty,
+            ],
+            chatbot,
+        )
 
         user_input.submit(
-            user_submit, [user_input, chatbot], [user_input, chatbot], queue=False
-        ).then(bot_respond, chatbot, chatbot)
+            user_submit,
+            [user_input, chatbot],
+            [user_input, chatbot],
+            queue=False,
+        ).then(
+            bot_respond,
+            [
+                chatbot,
+                ui_max_new_tokens,
+                ui_temperature,
+                ui_top_p,
+                ui_top_k,
+                ui_repetition_penalty,
+                ui_frequency_penalty,
+            ],
+            chatbot,
+        )
 
         clear_btn.click(clear_history, None, [chatbot, user_input], queue=False)
 
-        health_btn.click(refresh_health, None, health_output)
+        info_btn.click(fetch_backend_info, None, [backend_info_json, env_table], queue=False)
+
+        # 初始加载一次 /info
+        demo.load(fetch_backend_info, None, [backend_info_json, env_table], queue=False)
 
     return demo
 

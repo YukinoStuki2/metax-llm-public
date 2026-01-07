@@ -201,15 +201,24 @@ def _build_stop_token_ids(tokenizer: Any) -> List[int]:
     return ids
 
 
-def _build_sampling_params(tokenizer: Any, max_tokens: int) -> "SamplingParams":
+def _build_sampling_params(
+    tokenizer: Any,
+    max_tokens: int,
+    *,
+    temperature: Optional[float] = None,
+    top_p: Optional[float] = None,
+    top_k: Optional[int] = None,
+    frequency_penalty: Optional[float] = None,
+    repetition_penalty: Optional[float] = None,
+) -> "SamplingParams":
     stop_token_ids = _build_stop_token_ids(tokenizer)
     return SamplingParams(
-        temperature=float(TEMPERATURE),
-        top_p=float(TOP_P),
-        top_k=int(TOP_K),
+        temperature=float(TEMPERATURE if temperature is None else temperature),
+        top_p=float(TOP_P if top_p is None else top_p),
+        top_k=int(TOP_K if top_k is None else top_k),
         max_tokens=int(max_tokens),
-        frequency_penalty=float(FREQUENCY_PENALTY),
-        repetition_penalty=float(REPETITION_PENALTY),
+        frequency_penalty=float(FREQUENCY_PENALTY if frequency_penalty is None else frequency_penalty),
+        repetition_penalty=float(REPETITION_PENALTY if repetition_penalty is None else repetition_penalty),
         stop=list(STOP_STRINGS) if STOP_STRINGS else None,
         stop_token_ids=stop_token_ids if stop_token_ids else None,
     )
@@ -743,6 +752,14 @@ def _maybe_fix_load_format(engine_kwargs: dict, err: Exception) -> bool:
 class PredictionRequest(BaseModel):
     # 单条：str；batch：list[str]
     prompt: Union[str, List[str]]
+
+    # 可选：请求级生成参数覆盖（用于 WebUI 动态调参；不提供则使用环境变量默认值）
+    max_new_tokens: Optional[int] = None
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    top_k: Optional[int] = None
+    repetition_penalty: Optional[float] = None
+    frequency_penalty: Optional[float] = None
 
 
 class PredictionResponse(BaseModel):
@@ -1421,6 +1438,64 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.get("/info")
+def info():
+    """返回后端运行信息（供 WebUI 展示）。
+
+    注意：必须快速返回，不做任何重计算/联网。
+    """
+
+    # 白名单：避免把可能的密钥/敏感信息直接暴露到 UI。
+    env_keys = [
+        "MODEL_ID",
+        "MODEL_DIR",
+        "USE_VLLM",
+        "FORCE_VLLM",
+        "BATCH_MODE",
+        "BATCH_CONCURRENCY",
+        "GPU_MEMORY_UTILIZATION",
+        "DTYPE",
+        "MAX_MODEL_LEN",
+        "MAX_NEW_TOKENS",
+        "MAX_NEW_TOKENS_CODE",
+        "MAX_NEW_TOKENS_CODE_SOFT",
+        "MAX_NEW_TOKENS_CODE_HARD",
+        "TEMPERATURE",
+        "TOP_P",
+        "TOP_K",
+        "REPETITION_PENALTY",
+        "FREQUENCY_PENALTY",
+        "STOP_STRINGS",
+        "STOP_ON_DOUBLE_NEWLINE",
+        "VLLM_QUANTIZATION",
+        "VLLM_LOAD_FORMAT",
+        "VLLM_KV_CACHE_DTYPE",
+        "VLLM_MAX_NUM_SEQS",
+        "VLLM_MAX_NUM_BATCHED_TOKENS",
+        "VLLM_TOKENIZER_POOL_SIZE",
+        "VLLM_TOKENIZER_POOL_TYPE",
+        "SERVE_VLLM_ENGINE",
+    ]
+    env_view = {k: os.environ.get(k) for k in env_keys if k in os.environ}
+
+    return {
+        "status": "ok" if getattr(app.state, "ready", False) else "warming",
+        "backend": getattr(app.state, "backend", None),
+        "engine_kind": getattr(app.state, "engine_kind", None),
+        "batch_mode": is_batch_mode(),
+        "model_dir": os.environ.get("MODEL_DIR") or MODEL_DIR,
+        "defaults": {
+            "max_new_tokens": int(MAX_NEW_TOKENS),
+            "temperature": float(TEMPERATURE),
+            "top_p": float(TOP_P),
+            "top_k": int(TOP_K),
+            "repetition_penalty": float(REPETITION_PENALTY),
+            "frequency_penalty": float(FREQUENCY_PENALTY),
+        },
+        "env": env_view,
+    }
+
+
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(req: PredictionRequest):
     tokenizer = getattr(app.state, "tokenizer", None)
@@ -1432,7 +1507,17 @@ async def predict(req: PredictionRequest):
 
     prompts = to_list(req.prompt)
     prompt_texts = [format_as_chat(tokenizer, p) for p in prompts]
-    per_max_tokens = [pick_max_new_tokens(p) for p in prompts]
+
+    # 支持请求级 max_new_tokens 覆盖；不提供时使用现有 token routing。
+    if req.max_new_tokens is not None:
+        try:
+            mt = int(req.max_new_tokens)
+        except Exception:
+            mt = int(MAX_NEW_TOKENS)
+        mt = max(1, min(4096, mt))
+        per_max_tokens = [mt for _ in prompts]
+    else:
+        per_max_tokens = [pick_max_new_tokens(p) for p in prompts]
     if os.environ.get("LOG_TOKEN_ROUTING", "0").strip().lower() in ("1", "true", "yes", "y", "on"):
         counts: dict[int, int] = {}
         for mt in per_max_tokens:
@@ -1448,14 +1533,30 @@ async def predict(req: PredictionRequest):
         # 则单次调用 LLM.generate(list_prompts) 完成整个 batch。
         llm = getattr(app.state, "llm", None)
         if llm is not None:
-            sampling_params_cache: dict[int, SamplingParams] = {}
+            sampling_params_cache: dict[tuple, SamplingParams] = {}
 
             def get_sampling_params(max_tokens: int) -> SamplingParams:
                 mt = int(max_tokens)
-                sp = sampling_params_cache.get(mt)
+                key = (
+                    mt,
+                    req.temperature,
+                    req.top_p,
+                    req.top_k,
+                    req.frequency_penalty,
+                    req.repetition_penalty,
+                )
+                sp = sampling_params_cache.get(key)
                 if sp is None:
-                    sp = _build_sampling_params(tokenizer, mt)
-                    sampling_params_cache[mt] = sp
+                    sp = _build_sampling_params(
+                        tokenizer,
+                        mt,
+                        temperature=req.temperature,
+                        top_p=req.top_p,
+                        top_k=req.top_k,
+                        frequency_penalty=req.frequency_penalty,
+                        repetition_penalty=req.repetition_penalty,
+                    )
+                    sampling_params_cache[key] = sp
                 return sp
 
             llm_lock = getattr(app.state, "llm_lock", None)
@@ -1494,14 +1595,30 @@ async def predict(req: PredictionRequest):
         engine = app.state.engine
         engine_kind = getattr(app.state, "engine_kind", "async_v0")
 
-        sampling_params_cache: dict[int, SamplingParams] = {}
+        sampling_params_cache: dict[tuple, SamplingParams] = {}
 
         def get_sampling_params(max_tokens: int) -> SamplingParams:
             mt = int(max_tokens)
-            sp = sampling_params_cache.get(mt)
+            key = (
+                mt,
+                req.temperature,
+                req.top_p,
+                req.top_k,
+                req.frequency_penalty,
+                req.repetition_penalty,
+            )
+            sp = sampling_params_cache.get(key)
             if sp is None:
-                sp = _build_sampling_params(tokenizer, mt)
-                sampling_params_cache[mt] = sp
+                sp = _build_sampling_params(
+                    tokenizer,
+                    mt,
+                    temperature=req.temperature,
+                    top_p=req.top_p,
+                    top_k=req.top_k,
+                    frequency_penalty=req.frequency_penalty,
+                    repetition_penalty=req.repetition_penalty,
+                )
+                sampling_params_cache[key] = sp
             return sp
 
         async def run_one(text_prompt: str, max_tokens: int) -> str:
@@ -1546,14 +1663,25 @@ async def predict(req: PredictionRequest):
         for pt, mt in zip(prompt_texts, per_max_tokens):
             inputs = tok(pt, return_tensors="pt").to(mdl.device)
             eos_ids = _build_stop_token_ids(tok)
+            t = float(TEMPERATURE if req.temperature is None else req.temperature)
+            tp = float(TOP_P if req.top_p is None else req.top_p)
+            tk = int(TOP_K if req.top_k is None else req.top_k)
+            rp = float(REPETITION_PENALTY if req.repetition_penalty is None else req.repetition_penalty)
+            fp = float(FREQUENCY_PENALTY if req.frequency_penalty is None else req.frequency_penalty)
+            # transformers: temperature>0 时启用采样，否则走贪心（更稳）
             gen_kwargs = dict(
                 max_new_tokens=int(mt),
-                do_sample=False,
-                temperature=0.0,
-                top_p=1.0,
-                top_k=TOP_K,
-                repetition_penalty=float(REPETITION_PENALTY),
+                do_sample=bool(t > 0.0),
+                temperature=float(t),
+                top_p=float(tp),
+                top_k=int(tk),
+                repetition_penalty=float(rp),
             )
+            # frequency_penalty 不是所有 transformers 版本都支持；存在则透传
+            try:
+                gen_kwargs["frequency_penalty"] = float(fp)
+            except Exception:
+                pass
             if eos_ids:
                 gen_kwargs["eos_token_id"] = eos_ids
             out = mdl.generate(**inputs, **gen_kwargs)
@@ -1568,14 +1696,23 @@ async def predict(req: PredictionRequest):
     mt = per_max_tokens[0]
     eos_ids = _build_stop_token_ids(tok)
 
+    t = float(TEMPERATURE if req.temperature is None else req.temperature)
+    tp = float(TOP_P if req.top_p is None else req.top_p)
+    tk = int(TOP_K if req.top_k is None else req.top_k)
+    rp = float(REPETITION_PENALTY if req.repetition_penalty is None else req.repetition_penalty)
+    fp = float(FREQUENCY_PENALTY if req.frequency_penalty is None else req.frequency_penalty)
     gen_kwargs = dict(
         max_new_tokens=int(mt),
-        do_sample=False,
-        temperature=0.0,
-        top_p=1.0,
-        top_k=TOP_K,
-        repetition_penalty=float(REPETITION_PENALTY),
+        do_sample=bool(t > 0.0),
+        temperature=float(t),
+        top_p=float(tp),
+        top_k=int(tk),
+        repetition_penalty=float(rp),
     )
+    try:
+        gen_kwargs["frequency_penalty"] = float(fp)
+    except Exception:
+        pass
     if eos_ids:
         gen_kwargs["eos_token_id"] = eos_ids
 
