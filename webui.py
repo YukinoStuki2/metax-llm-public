@@ -144,28 +144,31 @@ def create_ui():
             """处理用户提交"""
             if not history:
                 history = []
-            # Gradio 6.x 使用字典格式
+            # Gradio 6.x 使用字典格式；不添加 None 内容，避免后处理报错
             history.append({"role": "user", "content": user_msg})
-            history.append({"role": "assistant", "content": None})
             return "", history
 
         def bot_respond(history):
-            """处理机器人回复"""
-            if not history or len(history) < 2:
-                return history
-            
-            # 检查最后一条是否是待回复的 assistant 消息
-            if history[-1].get("role") != "assistant" or history[-1].get("content") is not None:
+            """处理机器人回复（兼容 Gradio 6.x Chatbot 字典消息格式）"""
+            if not history:
                 return history
 
-            # 获取上一条用户消息
-            user_msg = history[-2].get("content", "")
-            bot_msg = ""
+            # 找到最后一条用户消息
+            user_msg = None
+            for msg in reversed(history):
+                if isinstance(msg, dict) and msg.get("role") == "user":
+                    user_msg = msg.get("content", "")
+                    break
+            if not user_msg:
+                return history
 
-            # 调用 predict 并逐步更新
+            # 若最后不是 assistant 消息或其 content 非字符串，先追加占位（空串），避免 None
+            if not (isinstance(history[-1], dict) and history[-1].get("role") == "assistant" and isinstance(history[-1].get("content"), str)):
+                history.append({"role": "assistant", "content": ""})
+
+            # 调用后端生成，并逐步更新最后一条 assistant 的内容
             for response in predict(user_msg):
-                bot_msg = response
-                history[-1]["content"] = bot_msg
+                history[-1]["content"] = response or ""
                 yield history
 
         def clear_history():
@@ -214,6 +217,7 @@ def main():
         server_name=WEBUI_HOST,
         server_port=WEBUI_PORT,
         share=WEBUI_SHARE,
+        theme=gr.themes.Soft(),
     )
 
 
