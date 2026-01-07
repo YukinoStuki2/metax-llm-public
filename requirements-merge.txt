@@ -1,12 +1,12 @@
 # 工具类前置（本地用，不参与最终评测镜像）
 # Minimal deps for running merge_adapter.py locally (e.g. on WSL)
 
-modelscope>=1.15.0
-transformers>=4.39.0
-accelerate>=0.27.0
-safetensors>=0.4.2
-sentencepiece>=0.1.99
-peft>=0.10.0
+# modelscope>=1.15.0
+# transformers>=4.39.0
+# accelerate>=0.27.0
+# safetensors>=0.4.2
+# sentencepiece>=0.1.99
+# peft>=0.10.0
 
 # Eval / local tooling (for eval_local.py, etc.)
 python-docx>=1.1.0
