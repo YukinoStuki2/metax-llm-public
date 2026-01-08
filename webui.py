@@ -639,16 +639,16 @@ def create_ui():
             with gr.Column(scale=5):
                 with gr.Tabs():
                     with gr.Tab("生成参数"):
-                        gr.Markdown("单次请求生效（无需重启后端）。")
+                        gr.Markdown("单次请求生效。")
                         ui_max_new_tokens = gr.Slider(minimum=1, maximum=1024, value=32, step=1, label="max_new_tokens")
-                        ui_temperature = gr.Slider(minimum=0.0, maximum=1.5, value=0.0, step=0.01, label="temperature (0=贪心)")
+                        ui_temperature = gr.Slider(minimum=0.0, maximum=1.5, value=0.0, step=0.01, label="temperature")
                         ui_top_p = gr.Slider(minimum=0.0, maximum=1.0, value=1.0, step=0.01, label="top_p")
                         ui_top_k = gr.Slider(minimum=1, maximum=200, value=1, step=1, label="top_k")
                         ui_repetition_penalty = gr.Slider(minimum=1.0, maximum=1.5, value=1.05, step=0.01, label="repetition_penalty")
                         ui_frequency_penalty = gr.Slider(minimum=0.0, maximum=1.0, value=0.1, step=0.01, label="frequency_penalty")
 
                     with gr.Tab("系统提示词"):
-                        gr.Markdown("修改后将影响后续 /predict 的 prompt 组装（无需重启）。")
+                        gr.Markdown("修改后将影响后续 /predict 的 prompt 组装。")
                         sys_prompt_box = gr.Textbox(
                             label="SYSTEM_PROMPT（当前值）",
                             value="",
@@ -675,9 +675,9 @@ def create_ui():
 - **联网**：抓取提供的 URL 内容”\n
 """
                         )
-                        rag_enable = gr.Checkbox(value=False, label="启用 RAG（把命中片段拼到 prompt）")
+                        rag_enable = gr.Checkbox(value=False, label="启用 RAG")
                         rag_allow_network = gr.Checkbox(value=False, label="允许联网抓取 URL（仅抓取下方填写的链接）")
-                        rag_use_baidu = gr.Checkbox(value=False, label="使用 www.baidu.com 搜索结果（需开启联网）")
+                        rag_use_baidu = gr.Checkbox(value=False, label="使用 www.baidu.com 搜索结果")
                         rag_urls = gr.Textbox(
                             label="URL 列表（每行一个，可空）",
                             placeholder="https://...\nhttps://...",
