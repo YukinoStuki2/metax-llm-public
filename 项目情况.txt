@@ -188,7 +188,7 @@ pred/ref 空则该条记 0
 
 Gitee（评测用）：git@gitee.com:yukinostuki/metax-demo.git（master）
 
-GitHub（镜像/Codex 用）：git@github.com:YukinoStuki2/metax-demo-mirror.git（master）
+GitHub（镜像/Codex 用）：git@github.com:YukinoStuki2/metax-llm.git（master）
 
 ModelScope 模型：YukinoStuki/Qwen3-4B-Plus-Merged（已上传）
 

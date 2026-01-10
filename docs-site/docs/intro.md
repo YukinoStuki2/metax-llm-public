@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# metax-demo 文档
+# metax-llm 文档
 
 本仓库用于“微调开源大模型进行问答评测”，并提供符合评测系统契约的推理服务（HTTP）。
 
