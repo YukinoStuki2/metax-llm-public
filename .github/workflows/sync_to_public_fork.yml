@@ -26,6 +26,9 @@ jobs:
           # 1) Remove Copilot/agent instructions (must not be public)
           rm -f .github/copilot-instructions.md || true
 
+          # 1.5) Remove internal project notes
+          rm -f "项目情况.txt" || true
+
           # 2) Remove all GitHub Actions workflows (must not be public)
           rm -rf .github/workflows || true
 
