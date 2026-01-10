@@ -40,8 +40,8 @@ const config = {
       ({
         docs: {
           sidebarPath: './sidebars.js',
-          // docs-only：让文档直接挂在站点根路径（/）
-          routeBasePath: '/',
+          // 将文档挂在 /docs，保留站点根路径作为主页
+          routeBasePath: 'docs',
           editUrl: 'https://github.com/YukinoStuki2/metax-demo-mirror/tree/master/docs-site/',
         },
         blog: false,
