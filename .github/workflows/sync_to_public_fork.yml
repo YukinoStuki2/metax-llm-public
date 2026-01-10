@@ -54,6 +54,16 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           chmod 700 ~/.ssh
 
+          # Validate key format early to provide actionable errors.
+          # Common mistake: pasting the .pub (single-line) into the secret.
+          if ! ssh-keygen -yf ~/.ssh/id_ed25519 >/dev/null 2>&1; then
+            echo "ERROR: SSH private key is invalid or unreadable (ssh-keygen failed)." >&2
+            echo "Hint: PUBLIC_FORK_SSH_PRIVATE_KEY must be the *private* key file content" >&2
+            echo "      (it usually starts with '-----BEGIN OPENSSH PRIVATE KEY-----')." >&2
+            echo "      The .pub key must be added to the *public repo* Deploy Keys (Allow write access)." >&2
+            exit 1
+          fi
+
           for i in 1 2 3 4 5; do
             ssh-keyscan -t ed25519,ecdsa,rsa github.com >> ~/.ssh/known_hosts 2>/dev/null && break
             sleep 2
@@ -77,4 +87,6 @@ jobs:
           BRANCH="${PUBLIC_FORK_BRANCH:-master}"
 
           git remote add public "$PUBLIC_FORK_REPO" || true
+          # Force git/ssh to use our key only (avoid other identities on runner)
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
           git push -f public "master:${BRANCH}"
