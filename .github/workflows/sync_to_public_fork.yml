@@ -44,13 +44,19 @@ jobs:
           set -eux
           mkdir -p ~/.ssh
 
-          if [[ -z "${{ secrets.PUBLIC_FORK_SSH_PRIVATE_KEY }}" ]]; then
-            echo "ERROR: secrets.PUBLIC_FORK_SSH_PRIVATE_KEY is empty/missing."
-            echo "Add it in GitHub repo Settings -> Secrets and variables -> Actions."
-            exit 1
+          # Prefer base64 secret to avoid multiline formatting/truncation issues.
+          # - PUBLIC_FORK_SSH_PRIVATE_KEY_B64: base64 of the private key file (recommended)
+          # - PUBLIC_FORK_SSH_PRIVATE_KEY    : raw private key content (multiline)
+          if [[ -n "${{ secrets.PUBLIC_FORK_SSH_PRIVATE_KEY_B64 }}" ]]; then
+            printf '%s' "${{ secrets.PUBLIC_FORK_SSH_PRIVATE_KEY_B64 }}" | tr -d '\r\n ' | base64 -d > ~/.ssh/id_ed25519
+          else
+            if [[ -z "${{ secrets.PUBLIC_FORK_SSH_PRIVATE_KEY }}" ]]; then
+              echo "ERROR: secrets.PUBLIC_FORK_SSH_PRIVATE_KEY (or _B64) is empty/missing." >&2
+              echo "Add one of them in GitHub repo Settings -> Secrets and variables -> Actions." >&2
+              exit 1
+            fi
+            printf '%s' "${{ secrets.PUBLIC_FORK_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
           fi
-
-          printf '%s' "${{ secrets.PUBLIC_FORK_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           chmod 700 ~/.ssh
 
@@ -68,6 +74,22 @@ jobs:
           echo "[debug] key header/footer (safe):"
           (grep -m1 '^-----BEGIN ' ~/.ssh/id_ed25519 || true) | sed 's/./*/g'
           (grep -m1 '^-----END ' ~/.ssh/id_ed25519 || true) | sed 's/./*/g'
+
+          # Basic sanity checks to detect truncated/incorrect secrets early.
+          if ! grep -q '^-----BEGIN ' ~/.ssh/id_ed25519; then
+            echo "ERROR: SSH key does not contain a BEGIN header. This is not a valid OpenSSH private key." >&2
+            exit 1
+          fi
+          if ! grep -q '^-----END ' ~/.ssh/id_ed25519; then
+            echo "ERROR: SSH key is missing an END footer. The secret is likely truncated or pasted incorrectly." >&2
+            echo "Fix: re-paste the full private key, or (recommended) store base64 in PUBLIC_FORK_SSH_PRIVATE_KEY_B64." >&2
+            exit 1
+          fi
+          if [[ "$(wc -l < ~/.ssh/id_ed25519 | tr -d ' ')" -lt "5" ]]; then
+            echo "ERROR: SSH key has too few lines; it looks truncated." >&2
+            echo "Fix: use base64 secret (PUBLIC_FORK_SSH_PRIVATE_KEY_B64) to avoid formatting issues." >&2
+            exit 1
+          fi
 
           # Validate key format early to provide actionable errors.
           # Common mistake: pasting the .pub (single-line) into the secret.
