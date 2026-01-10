@@ -49,10 +49,11 @@ push_metax-demo*.log
 tune_secrets.sh
 
 # Model (local, large)
-model/
-models/
-merged/
-merge_work/
+# IMPORTANT: anchor to repo root to avoid ignoring docs-site/docs/model/
+/model/
+/models/
+/merged/
+/merge_work/
 *.safetensors
 *.bin
 
