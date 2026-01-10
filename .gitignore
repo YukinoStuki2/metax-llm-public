@@ -56,5 +56,14 @@ merge_work/
 *.safetensors
 *.bin
 
+# docx
 plus.txt
 basic.txt
+
+# tool
+.tools/
+
+# Node / Docusaurus (docs-site)
+node_modules/
+.docusaurus/
+.cache/

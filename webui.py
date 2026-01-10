@@ -10,7 +10,6 @@ import requests
 import gradio as gr
 import json
 import subprocess
-import random
 import re
 import html as _html
 from urllib.parse import urlparse
@@ -503,33 +502,11 @@ def apply_system_prompt(new_prompt: str) -> str:
 
 def _sanitize_eval_output(lines: list[str]) -> str:
     """把 eval_local.py 的输出整理成 UI 友好的版本。
-
-    需求：
-    - tokens/s 不显示真实值：删除原 Throughput 行，用 19000-20000 随机值替换。
-    - total time 不显示：Summary 行里删掉 Total time。
     """
 
     out: list[str] = []
-    throughput_inserted = False
-
-    total_time_re = re.compile(r",\s*Total time:\s*[^,\n]+")
     for raw in lines:
-        s = raw.rstrip("\n")
-        if "Throughput" in s:
-            # 跳过真实吞吐
-            continue
-        # Summary 行去掉 Total time
-        if "===== Summary" in s or ("Questions:" in s and "OK:" in s and "Total time" in s):
-            s = total_time_re.sub("", s)
-        out.append(s)
-
-    # 在末尾补一段假的吞吐（随机 19000-20000）
-    fake1 = random.randint(19000, 20000)
-    fake2 = random.randint(19000, 20000)
-    out.append("")
-    out.append(f"Throughput RAW: answer_tokens/s={fake1:.2f}, (prompt+answer)_tokens/s={fake2:.2f}")
-    throughput_inserted = True
-    _ = throughput_inserted
+        out.append(raw.rstrip("\n"))
     return "\n".join(out).strip() + "\n"
 
 
@@ -574,13 +551,6 @@ def run_batch_test() -> Iterator[str]:
         assert proc.stdout is not None
         for line in proc.stdout:
             collected.append(line)
-            # 先简单过滤：不让真实 Throughput 行出现
-            if "Throughput" in line:
-                continue
-            # Summary 行里移除 Total time
-            if "Total time" in line and "Questions:" in line and "OK:" in line:
-                line = re.sub(r",\s*Total time:\s*[^,\n]+", "", line)
-
             shown_lines.append(line.rstrip("\n"))
             cur = "\n".join(shown_lines)
             if len(cur) > max_chars:
