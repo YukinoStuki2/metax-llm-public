@@ -54,6 +54,21 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           chmod 700 ~/.ssh
 
+          # Normalize common formatting issues from Secrets:
+          # - Sometimes newlines are stored as literal '\n' sequences (single-line secret)
+          # - Trailing spaces can break parsing
+          if [[ "$(wc -l < ~/.ssh/id_ed25519 | tr -d ' ')" == "1" ]] && grep -q '\\n' ~/.ssh/id_ed25519; then
+            perl -0777 -pe 's/\\n/\n/g' ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.tmp
+            mv ~/.ssh/id_ed25519.tmp ~/.ssh/id_ed25519
+            chmod 600 ~/.ssh/id_ed25519
+          fi
+          sed -i 's/[ \t]\+$//' ~/.ssh/id_ed25519
+
+          echo "[debug] key lines=$(wc -l < ~/.ssh/id_ed25519 | tr -d ' ') bytes=$(wc -c < ~/.ssh/id_ed25519 | tr -d ' ')"
+          echo "[debug] key header/footer (safe):"
+          (grep -m1 '^-----BEGIN ' ~/.ssh/id_ed25519 || true) | sed 's/./*/g'
+          (grep -m1 '^-----END ' ~/.ssh/id_ed25519 || true) | sed 's/./*/g'
+
           # Validate key format early to provide actionable errors.
           # Common mistake: pasting the .pub (single-line) into the secret.
           if ! ssh-keygen -yf ~/.ssh/id_ed25519 >/dev/null 2>&1; then
@@ -61,6 +76,7 @@ jobs:
             echo "Hint: PUBLIC_FORK_SSH_PRIVATE_KEY must be the *private* key file content" >&2
             echo "      (it usually starts with '-----BEGIN OPENSSH PRIVATE KEY-----')." >&2
             echo "      The .pub key must be added to the *public repo* Deploy Keys (Allow write access)." >&2
+            echo "      If your private key has a passphrase, re-generate with: ssh-keygen -t ed25519 -N '' ..." >&2
             exit 1
           fi
 
