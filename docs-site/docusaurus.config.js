@@ -10,7 +10,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'metax-llm 文档',
+  title: 'metax-llm-public 文档',
   tagline: 'LLM 评测推理服务与工程说明',
   favicon: 'img/YukinoStuki-icon.png',
 
@@ -42,7 +42,7 @@ const config = {
           sidebarPath: './sidebars.js',
           // 将文档挂在 /docs，保留站点根路径作为主页
           routeBasePath: 'docs',
-          editUrl: 'https://github.com/YukinoStuki2/metax-llm/tree/master/docs-site/',
+          editUrl: 'https://github.com/YukinoStuki2/metax-llm-public/tree/master/docs-site/',
         },
         blog: false,
         theme: {
@@ -59,9 +59,9 @@ const config = {
         respectPrefersColorScheme: true,
       },
       navbar: {
-        title: 'metax-llm',
+        title: 'metax-llm-public',
         logo: {
-          alt: 'metax-llm',
+          alt: 'metax-llm-public',
           src: 'img/YukinoStuki-icon.png',
         },
         items: [
@@ -72,7 +72,7 @@ const config = {
             label: '文档',
           },
           {
-            href: 'https://github.com/YukinoStuki2/metax-llm',
+            href: 'https://github.com/YukinoStuki2/metax-llm-public',
             label: 'GitHub',
             position: 'right',
           },
@@ -86,7 +86,7 @@ const config = {
             items: [
               {
                 label: 'GitHub',
-                href: 'https://github.com/YukinoStuki2/metax-llm',
+                href: 'https://github.com/YukinoStuki2/metax-llm-public',
               },
             ],
           },

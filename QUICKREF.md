@@ -4,8 +4,8 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/YukinoStuki2/metax-llm.git
-cd metax-llm
+git clone https://github.com/YukinoStuki2/metax-llm-public.git
+cd metax-llm-public
 
 # 2. 创建环境
 python3 -m venv .venv

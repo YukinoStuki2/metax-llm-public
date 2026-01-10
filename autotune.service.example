@@ -7,10 +7,10 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/data/metax-llm
-# 通知/密钥等配置：直接放在 /data/metax-llm/tune_secrets.sh
+WorkingDirectory=/data/metax-llm-public
+# 通知/密钥等配置：直接放在 /data/metax-llm-public/tune_secrets.sh
 # auto_tune.sh 会自动 source 该文件（若存在），无需 systemd 的 EnvironmentFile。
-ExecStart=/bin/bash -lc '/data/metax-llm/auto_tune.sh'
+ExecStart=/bin/bash -lc '/data/metax-llm-public/auto_tune.sh'
 Restart=always
 RestartSec=10
 

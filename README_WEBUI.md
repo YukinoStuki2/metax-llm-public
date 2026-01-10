@@ -95,8 +95,8 @@ ssh user@your-metax-host
 
 # 克隆仓库
 cd ~
-git clone https://github.com/YukinoStuki2/metax-llm.git
-cd metax-llm
+git clone https://github.com/YukinoStuki2/metax-llm-public.git
+cd metax-llm-public
 
 # 创建虚拟环境
 python3 -m venv .venv
@@ -120,7 +120,7 @@ MODEL_ID=YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ ./run_model.sh
 
 **启动 WebUI** (新终端或使用 tmux):
 ```bash
-cd ~/metax-llm
+cd ~/metax-llm-public
 source .venv/bin/activate
 ./start_webui.sh
 ```

@@ -11,13 +11,13 @@ sidebar_position: 2
 - 构建（build 阶段会下载模型权重）：
 
 ```bash
-docker build -t metax-llm:docs .
+docker build -t metax-llm-public:docs .
 ```
 
 - 运行（默认暴露 8000）：
 
 ```bash
-docker run --rm -p 8000:8000 metax-llm:docs
+docker run --rm -p 8000:8000 metax-llm-public:docs
 ```
 
 > 不同平台 GPU 运行参数不同（NVIDIA/MetaX 等），以各平台模板为准。

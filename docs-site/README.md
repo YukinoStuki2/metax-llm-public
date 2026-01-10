@@ -9,7 +9,7 @@
 本仓库提供“仅在仓库内生效”的 Linux Node 工具链示例：
 
 ```bash
-cd /home/yukinostuki/metax-llm
+cd /home/yukinostuki/metax-llm-public
 export PATH="$PWD/.tools/node/bin:$PATH"
 
 cd docs-site

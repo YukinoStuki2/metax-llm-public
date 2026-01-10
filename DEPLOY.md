@@ -21,8 +21,8 @@ ssh your-username@your-metax-host-ip
 
 ```bash
 cd ~
-git clone https://github.com/YukinoStuki2/metax-llm.git
-cd metax-llm
+git clone https://github.com/YukinoStuki2/metax-llm-public.git
+cd metax-llm-public
 ```
 
 ### 3. 创建 Python 虚拟环境
@@ -78,7 +78,7 @@ sudo apt install tmux
 tmux new -s backend
 
 # 在 tmux 会话中执行:
-cd ~/metax-llm
+cd ~/metax-llm-public
 source .venv/bin/activate
 ./run_model.sh
 
@@ -92,7 +92,7 @@ source .venv/bin/activate
 tmux new -s webui
 
 # 在 tmux 会话中执行:
-cd ~/metax-llm
+cd ~/metax-llm-public
 source .venv/bin/activate
 ./start_webui.sh
 
@@ -240,7 +240,7 @@ which python
 ## 更新项目
 
 ```bash
-cd ~/metax-llm
+cd ~/metax-llm-public
 
 # 停止服务
 tmux kill-session -t backend
@@ -277,9 +277,9 @@ After=network.target
 [Service]
 Type=simple
 User=your-username
-WorkingDirectory=/home/your-username/metax-llm
-Environment="PATH=/home/your-username/metax-llm/.venv/bin"
-ExecStart=/home/your-username/metax-llm/.venv/bin/python serve.py
+WorkingDirectory=/home/your-username/metax-llm-public
+Environment="PATH=/home/your-username/metax-llm-public/.venv/bin"
+ExecStart=/home/your-username/metax-llm-public/.venv/bin/python serve.py
 Restart=always
 
 [Install]
@@ -301,10 +301,10 @@ Requires=qwen-backend.service
 [Service]
 Type=simple
 User=your-username
-WorkingDirectory=/home/your-username/metax-llm
-Environment="PATH=/home/your-username/metax-llm/.venv/bin"
+WorkingDirectory=/home/your-username/metax-llm-public
+Environment="PATH=/home/your-username/metax-llm-public/.venv/bin"
 Environment="API_BASE_URL=http://127.0.0.1:8000"
-ExecStart=/home/your-username/metax-llm/.venv/bin/python webui.py
+ExecStart=/home/your-username/metax-llm-public/.venv/bin/python webui.py
 Restart=always
 
 [Install]

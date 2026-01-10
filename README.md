@@ -65,7 +65,7 @@ sudo apt install -y python3.12-venv python3-pip
 2) 创建并激活虚拟环境：
 
 ```bash
-cd /path/to/metax-llm
+cd /path/to/metax-llm-public
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip setuptools wheel
@@ -185,7 +185,7 @@ python eval_local.py --batch --strip_q_suffix --which bonus --max_n 50
 运行示例：
 
 ```bash
-cd /data/metax-llm
+cd /data/metax-llm-public
 source ./env_force.sh
 ./auto_tune.sh
 ```
@@ -201,7 +201,7 @@ source ./env_force.sh
 1) 更新代码并准备私密配置：
 
 ```bash
-cd /data/metax-llm
+cd /data/metax-llm-public
 git pull
 
 cp tune_secrets.example.sh tune_secrets.sh
