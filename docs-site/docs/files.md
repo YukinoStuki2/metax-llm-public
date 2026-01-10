@@ -32,3 +32,15 @@ sidebar_position: 4
 
 - 可选：用于预热/抽样测试的数据文件
 - 不应成为服务启动的强依赖
+
+## 进一步阅读（GitHub 文档站）
+
+为了避免单页过长，仓库的 `.py/.sh` 入口脚本已拆分到多个文档页：
+
+- 推理服务：见「推理服务（serve.py）」
+- 启动脚本：见「启动脚本（run_model.sh / env_force.sh）」
+- WebUI：见「WebUI（Gradio）」
+- 本地评测：见「本地评测（eval_local.py）」
+- 自动调参：见「自动调参（auto_tune.py / auto_tune.sh）」
+- 模型工程：见「模型下载 / 融合 LoRA / 上传」
+- 量化：见「AWQ 量化 / 抽样校准集」
