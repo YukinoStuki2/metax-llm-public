@@ -62,7 +62,7 @@ const config = {
         title: 'metax-demo',
         logo: {
           alt: 'metax-demo',
-          src: 'img/logo.svg',
+          src: 'img/YukinoStuki-icon.png',
         },
         items: [
           {
