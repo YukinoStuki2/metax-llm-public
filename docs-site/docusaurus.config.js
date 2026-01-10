@@ -12,7 +12,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 const config = {
   title: 'metax-demo 文档',
   tagline: 'LLM 评测推理服务与工程说明',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/YukinoStuki-icon.png',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
