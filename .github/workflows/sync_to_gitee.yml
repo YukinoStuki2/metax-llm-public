@@ -23,7 +23,7 @@ jobs:
         run: |
           set -eux
           # 白名单：仅保留这些顶层文件；其余全部删除（.git 本身除外）。
-          keep=(.git .gitignore .dockerignore Dockerfile README.md download_model.py requirements.txt serve.py data.jsonl)
+          keep=(.git .gitignore .dockerignore Dockerfile README_GITEE.md download_model.py requirements.txt serve.py data.jsonl)
 
           shopt -s dotglob
           for path in ./*; do
@@ -39,6 +39,15 @@ jobs:
               rm -rf "$path"
             fi
           done
+
+          # 将 Gitee 专用 README 作为 README.md 同步到 Gitee。
+          # 说明：GitHub 主仓库可保留自己的 README.md（完整开发文档），但同步到 Gitee 时只需评测所需的精简版。
+          if [[ -f "README_GITEE.md" ]]; then
+            mv -f README_GITEE.md README.md
+          else
+            echo "ERROR: README_GITEE.md not found in repo root. Please add/commit it before syncing."
+            exit 1
+          fi
 
           # 将删除操作加入暂存区，以便 push -f 时同步移除 Gitee 上的多余文件。
           git add -A
