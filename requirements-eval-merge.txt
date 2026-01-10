@@ -1,0 +1,14 @@
+############################################
+# Legacy file (kept for backward compatibility)
+#
+# 依赖已拆分为两个文件：
+# - requirements-eval.txt   : eval_local.py 等本地评测前置
+# - requirements-merge.txt  : merge_adapter.py 等融合工具前置
+#
+# 建议使用：
+#   pip install -r requirements-eval.txt
+# 或
+#   pip install -r requirements-merge.txt
+# 或同时安装：
+#   pip install -r requirements-webui.txt -r requirements-eval.txt
+############################################

@@ -1,0 +1,80 @@
+name: Sync to Public Fork
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Strip private-only files
+        shell: bash
+        run: |
+          set -eux
+
+          # 1) Remove Copilot/agent instructions (must not be public)
+          rm -f .github/copilot-instructions.md || true
+
+          # 2) Remove all GitHub Actions workflows (must not be public)
+          rm -rf .github/workflows || true
+
+          # Stage removals for the sync commit
+          git add -A
+
+          # Create a sync-only commit on the runner so the public fork receives the stripped tree
+          if ! git diff --cached --quiet; then
+            git -c user.name='public-sync-bot' -c user.email='public-sync-bot@users.noreply.github.com' \
+              commit -m 'chore: sync stripped files to public fork'
+          fi
+
+      - name: Setup SSH for GitHub
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p ~/.ssh
+
+          if [[ -z "${{ secrets.PUBLIC_FORK_SSH_PRIVATE_KEY }}" ]]; then
+            echo "ERROR: secrets.PUBLIC_FORK_SSH_PRIVATE_KEY is empty/missing."
+            echo "Add it in GitHub repo Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          printf '%s' "${{ secrets.PUBLIC_FORK_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          chmod 700 ~/.ssh
+
+          for i in 1 2 3 4 5; do
+            ssh-keyscan -t ed25519,ecdsa,rsa github.com >> ~/.ssh/known_hosts 2>/dev/null && break
+            sleep 2
+          done
+          test -s ~/.ssh/known_hosts
+
+      - name: Push to public fork
+        shell: bash
+        env:
+          PUBLIC_FORK_REPO: ${{ secrets.PUBLIC_FORK_REPO }}
+          PUBLIC_FORK_BRANCH: ${{ secrets.PUBLIC_FORK_BRANCH }}
+        run: |
+          set -eux
+
+          if [[ -z "$PUBLIC_FORK_REPO" ]]; then
+            echo "ERROR: secrets.PUBLIC_FORK_REPO is empty/missing."
+            echo "Example: git@github.com:<owner>/<repo>.git"
+            exit 1
+          fi
+
+          BRANCH="${PUBLIC_FORK_BRANCH:-master}"
+
+          git remote add public "$PUBLIC_FORK_REPO" || true
+          git push -f public "master:${BRANCH}"

@@ -9,6 +9,7 @@ API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000}"
 WEBUI_PORT="${WEBUI_PORT:-7860}"
 WEBUI_HOST="${WEBUI_HOST:-0.0.0.0}"
 WEBUI_SHARE="${WEBUI_SHARE:-0}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 echo "========================================"
 echo "🌐 启动 Qwen3-4B Plus WebUI"
@@ -18,21 +19,26 @@ echo "后端 API: ${API_BASE_URL}"
 echo "监听地址: ${WEBUI_HOST}:${WEBUI_PORT}"
 echo "========================================"
 
-# 检查虚拟环境
+
+# 自动创建虚拟环境
 if [[ ! -d "${VENV_PATH}" ]]; then
-    echo "❌ 错误: 虚拟环境不存在: ${VENV_PATH}"
-    echo "请先运行: python3 -m venv ${VENV_PATH}"
-    exit 1
+    echo "📦 虚拟环境不存在，正在创建: ${VENV_PATH}"
+    if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+        echo "❌ 错误: 找不到 Python：${PYTHON_BIN}"
+        echo "请安装 python3，或设置 PYTHON_BIN=python3.10 等再重试"
+        exit 1
+    fi
+    "${PYTHON_BIN}" -m venv "${VENV_PATH}"
 fi
 
 # 激活虚拟环境
 source "${VENV_PATH}/bin/activate"
 
-# 检查并安装 WebUI 依赖
-if ! python -c "import gradio" &>/dev/null; then
-    echo "📦 安装 WebUI 依赖..."
-    pip install -r requirements-webui.txt --upgrade
-fi
+
+# 安装依赖（WebUI + eval 前置）
+echo "📦 安装/更新依赖（webui + eval）..."
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements-webui.txt -r requirements-eval.txt --upgrade
 
 # 检查后端是否启动
 echo ""
