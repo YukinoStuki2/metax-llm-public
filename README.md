@@ -8,7 +8,7 @@
 
 - 🚀 快速开始
 
-- 使用说明
+- 🧭 使用说明
 
 - 🧩 API 契约
 
@@ -16,7 +16,7 @@
 
 ---
 
-## 摩尔线程一等奖——沐曦赛道
+## 🏆 摩尔线程一等奖——沐曦赛道
 
 ---
 
@@ -28,7 +28,7 @@ Github仓库（用于具体开发）：<https://github.com/YukinoStuki2/metax-ll
 
 两个仓库仅有文件数量区别，其版本和代码内容都是同步的。
 
-## 项目介绍
+## 📚 项目介绍
 
 这是一个对微调开源大模型进行推理，用于问答评测的项目：
 
@@ -87,37 +87,46 @@ Github仓库（用于具体开发）：<https://github.com/YukinoStuki2/metax-ll
 
 **测试时使用 Gitee 提供的沐曦算力服务器和系统镜像进行部署，实测没有问题；其他平台请注意前置依赖是否满足。**
 
-### 使用 WebUI (推荐)
+### 🌐 使用 WebUI（推荐）
 
-1. 导入环境变量：
+导入环境变量：
 
 ```bash
 source ./env_force.sh
 ```
 
-1. 启动推理后端：
+启动推理后端：
 
 ```bash
 bash ./run_model.sh
 ```
 
-1. 启动 Web 界面：
+启动 Web 界面：
 
 ```bash
 ./start_webui.sh
 ```
 
-1. 浏览器访问：<http://localhost:7860>
+浏览器访问：<http://localhost:7860>
 
-5.（可选）如果在沐曦服务器中启动，可以通过 SSH 隧道连接 WebUI：
+（可选）如果在沐曦服务器中启动，可以通过 SSH 隧道连接 WebUI：
 
 ```shell
 ssh -CNg -L 7860:127.0.0.1:7860 root+<username>@<IP> -p <PORT>
 ```
 
-### 使用Docker启动（评测系统无webui）
+### 🐳 使用 Docker 启动（评测系统无 WebUI）
 
-**！沐曦容器上无法直接用docker启动**
+**注意：沐曦容器上无法直接用 Docker 启动（需要按平台提供的评测方式运行）。**
+
+本地自测：
+
+```bash
+docker build -t metax-demo:latest .
+docker run --rm -p 8000:8000 metax-demo:latest
+```
+
+时间限制（参考）：
 
 ``` text
 docker build stage: 900s
@@ -141,7 +150,325 @@ curl -s http://127.0.0.1:8000/predict \
 
 ---
 
-## 使用说明
+## 🧭 使用说明
+
+使用本仓库的一些脚本可以便捷地完成各种操作。
+
+参数分工：
+
+- `env_force.sh`：**强制导入**一套“干净”的默认参数（必须用 `source`）。
+
+- `run_model.sh`：启动后端服务；**不会强制覆盖**已设置的环境变量（变量未设置时给默认值）。
+
+- 想临时覆盖某个参数：`MODEL_ID=... MAX_NEW_TOKENS=... ./run_model.sh` 或先 `export` 再启动。
+
+### ✅ WebUI
+
+适合本地/云主机交互式测试（评测机 Docker 运行不包含 WebUI）。
+
+浏览器打开：[http://localhost:7860 ](http://localhost:7860)
+
+更多功能（生成参数、SYSTEM_PROMPT、RAG、Batch 测试）见：[README_WEBUI.md](README_WEBUI.md)
+
+### ✅ 切换模型
+
+默认会下载/加载 `MODEL_ID` 对应的模型，运行目录默认是 `MODEL_DIR=./model/$MODEL_ID`。
+
+切换到另一个 ModelScope 模型：
+
+```bash
+source ./env_force.sh
+MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM MODEL_REVISION=master bash ./run_model.sh
+```
+
+切到本地目录（已提前准备好权重，避免启动时下载）：
+
+```bash
+source ./env_force.sh
+MODEL_DIR=./model/YukinoStuki/Qwen3-4B-Plus-LLM SKIP_MODEL_DOWNLOAD=1 bash ./run_model.sh
+```
+
+可供选择的模型有：
+
+稳定，可评测可使用：
+
+[YukinoStuki/Qwen2.5-0.5B-Plus-LLM （最快速）](https://modelscope.cn/models/YukinoStuki/Qwen2.5-0.5B-Plus-LLM)
+
+[YukinoStuki/Qwen3-4B-Plus-LLM](https://modelscope.cn/models/YukinoStuki/Qwen3-4B-Plus-LLM)[（最智能）](https://modelscope.cn/models/YukinoStuki/Qwen2.5-0.5B-Plus-LLM)
+
+不稳定，可使用但评测可能过不了：
+
+[YukinoStuki/Qwen2.5-0.5B-Plus-EN （英语回复）](https://modelscope.cn/models/YukinoStuki/Qwen2.5-0.5B-Plus-EN)
+
+[YukinoStuki/Qwen3-0.6B-Plus-LLM （较快速）](https://modelscope.cn/models/YukinoStuki/Qwen3-0.6B-Plus-LLM)
+
+[YukinoStuki/Qwen3-1.7B-Plus-LLM （快速）](https://modelscope.cn/models/YukinoStuki/Qwen3-1.7B-Plus-LLM)
+
+[YukinoStuki/Qwen2.5-1.7B-Plus-LLM（快速）](https://modelscope.cn/models/YukinoStuki/Qwen2.5-1.7B-Plus-LLM)
+
+[YukinoStuki/Qwen3-4B-Plus-LLM-AWQ （量化-低精度）](https://modelscope.cn/models/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ)
+
+[YukinoStuki/Qwen2.5-0.5B-Plus-AWQ](https://modelscope.cn/models/YukinoStuki/Qwen2.5-0.5B-Plus-AWQ)[（量化-超低精度）](https://modelscope.cn/models/YukinoStuki/Qwen3-4B-Plus-LLM-AWQ)
+
+[YukinoStuki/Qwen2.5-0.5B-Plus-CCC （不同数据集）](https://modelscope.cn/models/YukinoStuki/Qwen2.5-0.5B-Plus-CCC)
+
+直接把MODEL_ID和MODEL_DIR更换为以上模型的完整名字即可，如MODEL_ID=YukinoStuki/Qwen3-4B-Plus-LLM
+
+### ✅ 切换参数
+
+最常用的推理参数（启动前覆盖即可）：
+
+```bash
+# 控制输出长度 / 吞吐
+MAX_NEW_TOKENS=128 MAX_MODEL_LEN=4096 \
+# 解码稳定性
+TEMPERATURE=0.0 TOP_P=1.0 TOP_K=1 \
+# 显存占用
+GPU_MEMORY_UTILIZATION=0.90 \
+bash ./run_model.sh
+```
+
+batch 开关：
+
+```bash
+# 开启 batch（默认通常已开）
+BATCH_MODE=1 BATCH_CONCURRENCY=512 bash ./run_model.sh
+
+# 关闭 batch（单条请求模式）
+BATCH_MODE=0 bash ./run_model.sh
+```
+
+所有可更改的参数请参照详细文档<https://docs-gpu.yukino.uk>
+
+### ✅ 直接运行模型
+
+启动后端（FastAPI + uvicorn，端口固定 8000）：
+
+```bash
+source ./env_force.sh
+uvicorn serve:app --host 0.0.0.0 --port 8000
+```
+
+健康检查：
+
+```bash
+curl -s http://127.0.0.1:8000/
+```
+
+单条推理：
+
+```bash
+curl -s http://127.0.0.1:8000/predict \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"请简要回答：什么是CUDA？"}'
+```
+
+### ✅ 对模型进行评测
+
+项目提供多参数评测脚本[eval_local.py](eval_local.py)，能在本地一定程度上模拟评测机得分
+
+评测脚本会输出准确率和token/s速度，不一定准确！仅参考意义（比如我知道我这次跑的比上次好即可）
+
+评测脚本会调用后端 `/predict`，所以**先启动后端**再跑评测。
+
+方式一：使用封装脚本（basic是基础题，bonus是加分题，修改WHICH参数）：
+
+```bash
+source ./env_force.sh
+bash ./run_model.sh
+
+# 新开终端
+MODEL_DIR="$MODEL_DIR" WHICH=bonus bash ./judge.sh
+```
+
+方式二：直接跑 `eval_local.py`（basic是基础题，bonus是加分题，修改which参数）：
+
+```bash
+python3 eval_local.py \
+  --which bonus \
+  --batch \
+  --overwrite_jsonl \
+  --model_dir_for_tokenizer "$MODEL_DIR"
+```
+
+eval_local.py有很多很多参数可以调控，请参照详细文档<https://docs-gpu.yukino.uk>
+
+### ✅ 启用推理解码
+
+本项目支持 speculative decoding（默认关闭）。ngram 方法不需要额外 draft 模型，零额外权重成本：
+
+```bash
+source ./env_force.sh
+ENABLE_SPECULATIVE_DECODING=1 SPEC_METHOD=ngram SPEC_NUM_SPECULATIVE_TOKENS=6 bash ./run_model.sh
+```
+
+如需 draft 模型（沐曦vllm0.10.0不支持draft）：
+
+```bash
+ENABLE_SPECULATIVE_DECODING=1 \
+SPEC_METHOD=draft \
+SPEC_DRAFT_MODEL_ID=<draft_model_id> \
+SPEC_NUM_SPECULATIVE_TOKENS=6 \
+bash ./run_model.sh
+```
+
+### ✅ 量化
+
+仓库内提供 AWQ 量化脚本 [quantize_awq.py](quantize_awq.py)（AutoAWQ 4bit，参数内置偏保准确率；建议单独虚拟环境安装量化依赖，避免污染线上推理环境）。
+
+1）安装量化依赖：
+
+```bash
+python3 -m venv .venv-awq
+source .venv-awq/bin/activate
+python -m pip install -U pip setuptools wheel
+
+# 先安装 transformers 等轻依赖（避免 autoawq 自动升级 torch 破坏环境）
+python -m pip install -r requirements-quantize-awq.txt
+
+# 再安装 autoawq（提供 awq 包；用 --no-deps 避免其拉取/升级 torch）
+python -m pip install --no-deps autoawq==0.2.9
+```
+
+2）生成校准集（`quantize_awq.py` 期望 jsonl 每行 `{"text":"..."}`；示例：8192 条，最大长度 2048 字符）：
+
+```bash
+N=8192 MAX_LEN=2048 OUT_JSONL=calib_8192.jsonl OUT_TXT=calib_8192.txt python3 sample_calib_from_data.py
+```
+
+3）执行量化导出：
+
+```bash
+# 可用 AWQ_CALIB_JSONL 覆盖校准集路径；脚本默认值目前是 calib_8192.jsonl
+AWQ_CALIB_JSONL=calib_8192.jsonl \
+python3 quantize_awq.py \
+  --model_dir model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM \
+  --output_dir model/YukinoStuki/Qwen2.5-0.5B-Plus-AWQ
+```
+
+4）加载 AWQ 模型启动后端（vLLM 侧透传）：
+
+```bash
+source ./env_force.sh
+
+# 使用量化后的本地目录；如已生成无需下载
+MODEL_DIR=./model/YukinoStuki/Qwen2.5-0.5B-Plus-AWQ \
+SKIP_MODEL_DOWNLOAD=1 \
+VLLM_QUANTIZATION=awq VLLM_LOAD_FORMAT=awq \
+bash ./run_model.sh
+```
+
+### ✅ 上传模型到 ModelScope
+
+项目提供模型上传脚本 [upload_model.py](upload_model.py)，用于把**本地模型目录**上传到 ModelScope 指定仓库（用于把量化/融合后的结果覆盖上传到同名 repo）。
+
+脚本参数规则（与代码一致）：
+
+- `--repo-id`：目标 ModelScope 仓库 ID；也可用环境变量 `REPO_ID` 覆盖。
+
+- `--model-dir`：本地模型目录；也可用环境变量 `MODEL_DIR` 覆盖。
+
+- token：优先用 `--token`；否则读取环境变量 `MODELSCOPE_API_TOKEN` 或 `MODELSCOPE_TOKEN`。
+
+示例 1：上传量化后的 0.5B AWQ（覆盖同名仓库）：
+
+```bash
+export MODELSCOPE_API_TOKEN='<your_token>'
+
+python3 upload_model.py \
+  --repo-id YukinoStuki/Qwen2.5-0.5B-Plus-AWQ \
+  --model-dir model/YukinoStuki/Qwen2.5-0.5B-Plus-AWQ \
+  --commit-message 'overwrite awq (autoawq)'
+```
+
+示例 2：用环境变量简化（脚本会读 `REPO_ID`/`MODEL_DIR`）：
+
+```bash
+export MODELSCOPE_API_TOKEN='<your_token>'
+export REPO_ID='YukinoStuki/Qwen2.5-0.5B-Plus-AWQ'
+export MODEL_DIR='model/YukinoStuki/Qwen2.5-0.5B-Plus-AWQ'
+
+python3 upload_model.py --commit-message 'upload model folder'
+```
+
+### ✅ 自动调参（auto_tune）
+
+项目提供自动调参脚本 [auto_tune.py](auto_tune.py) 与启动封装 [auto_tune.sh](auto_tune.sh)。它会循环尝试不同参数组合：
+
+- 启动后端（8000）→ 健康检查 → 多次运行 `eval_local.py` → 取平均分/速度 → 记录结果 → 关闭服务
+
+- 失败/超时会自动跳过进入下一组组合（脚本不中断）
+
+- 支持断点续跑（默认会跳过已跑过的组合）
+
+1）准备（推荐先清“干净参数”）：
+
+```bash
+source ./env_force.sh
+```
+
+2）配置通知/密钥（可选，可以通过**飞书**或者**邮箱**发送通知）：
+
+```bash
+cp tune_secrets.example.sh tune_secrets.sh
+chmod 600 tune_secrets.sh
+# 然后编辑 tune_secrets.sh，填入飞书 webhook 或 SMTP 等配置
+```
+
+说明：`auto_tune.sh` 启动时会自动 `source ./tune_secrets.sh`（若存在）。
+
+3）启动自动调参：
+
+```bash
+./auto_tune.sh
+```
+
+常用覆盖参数（直接写在命令前即可）：
+
+```bash
+# ACC: 准确率阈值；EVAL_RUNS: 每组参数重复评测次数
+ACC=0.8810 EVAL_RUNS=5 ./auto_tune.sh
+
+# 超时控制（启动/评测）
+STARTUP_TIMEOUT=240 EVAL_TIMEOUT=420 ./auto_tune.sh
+
+# 心跳通知（每 N 个 trial 或每隔 N 秒发一次；0=关闭）
+HEARTBEAT_TRIALS=10 TUNE_HEARTBEAT_INTERVAL_S=600 ./auto_tune.sh
+```
+
+输出产物（默认写在仓库根目录）：
+
+- `tune_results.jsonl`：每个参数组合一行结果（断点续跑会用它去重）
+
+- `best_params.json`：当前最优参数快照
+
+- `tune_status.json`：实时状态（便于外部监控）
+
+- `tune_server_logs/`：每次试验的服务端日志
+
+高级：扩展搜索空间（可选）
+
+- 新建一个 JSON 文件，例如：`tune_search_space.json`，内容形如：`{"GPU_MEMORY_UTILIZATION":["0.95","0.97"],"MAX_MODEL_LEN":["4096","8192"]}`
+
+- 启动时指定：
+
+```bash
+TUNE_SEARCH_SPACE_FILE=./tune_search_space.json ./auto_tune.sh
+```
+
+端口占用处理（可选）：默认只等待重试，不会杀进程；若你确认占用者是残留 `uvicorn serve:app`，可谨慎开启：
+
+```bash
+TUNE_PORT_BUSY_KILL=1 ./auto_tune.sh
+```
+
+守护运行（可选）：
+
+- 无 root：用 [run_autotune_forever.sh](run_autotune_forever.sh) 让 `auto_tune` 异常退出自动重启
+
+- 有 systemd：参考 [autotune.service.example](autotune.service.example) 作为服务部署
+
+注意：通知（飞书/邮件）需要联网。
 
 ---
 
@@ -166,6 +493,8 @@ curl -s http://127.0.0.1:8000/predict \
 - batch 请求格式：`{"prompt":["...","...",...]}`
 
 - batch 响应格式：`{"response":["...","...",...]}`（答案数量需与问题数量一致）
+
+建议：若模型输出包含 `<think>...</think>`，请在返回前剥离，避免影响评测。
 
 ---
 
@@ -199,7 +528,7 @@ curl -s http://127.0.0.1:8000/predict \
 |`autotune.service.example`|systemd 服务示例：将自动调参以守护进程方式运行。|
 |`merge_adapter.py`|将 LoRA/PEFT adapter 融合进基座模型并导出 merged 权重。|
 |`upload_model.py`|将本地（HF 格式）模型目录上传到 ModelScope。|
-|`quantize_awq.py`|AWQ 量化脚本（基于AutoAWQ）。|
+|`quantize_awq.py`|AWQ 量化脚本（AutoAWQ 4bit；偏保准确率的内置参数）。|
 |`sample_calib_from_data.py`|从 `data.jsonl` 抽样生成量化所需的校准数据（calibration set）。|
 |`calib_512.jsonl` / `calib_512.txt`|量化校准数据（512 规模/上下文版本，供 AWQ 使用）。|
 |`calib_8192.jsonl` / `calib_8192.txt`|量化校准数据（8192 规模/上下文版本，供 AWQ使用）。|
@@ -213,176 +542,7 @@ curl -s http://127.0.0.1:8000/predict \
 
 ---
 
-以下内容是旧文档，暂未完全重排（可作为补充参考）：
-
-## 融合 Adapter（LoRA/PEFT）到基座模型
-
-如果你的微调仓库里只有 `adapter_model.safetensors`（没有完整的 merged 权重），可以在构建阶段下载基座模型并进行融合。
-
-本项目默认在 Docker 构建阶段执行 [merge_adapter.py](merge_adapter.py)：
-
-- 从 ModelScope 下载基座模型（默认 `Qwen/Qwen2.5-0.5B`）
-
-- 从 Gitee clone 你的 adapter 仓库（默认 `https://gitee.com/yukinostuki/qwen2.5-0.5b-plus.git`）
-
-- 使用 PEFT 将 adapter 融合到基座模型并导出到 `/app/model/merged`
-
-- 运行时 `MODEL_DIR=/app/model/merged`
-
-### 环境变量
-
-- `ADAPTER_REPO_URL`：adapter 仓库地址（可用 https 或 ssh 地址）
-
-- `ADAPTER_REPO_REF`：可选，指定分支/Tag/Commit
-
-- `BASE_MODEL`：ModelScope 基座模型 ID，默认 `Qwen/Qwen2.5-0.5B`
-
-- `BASE_REVISION`：基座模型 revision，默认 `master`
-
-- `MERGED_MODEL_DIR`：融合输出目录，默认 `/app/model/merged`
-
-### adapter_config.json 的要求
-
-PEFT 融合需要 `adapter_config.json`。
-
-如果你的 adapter 仓库里没有该文件（只提供了 `adapter_model.safetensors`），请额外提供其配置：
-
-- `ADAPTER_CONFIG_JSON`：直接传 JSON 字符串
-
-- 或 `ADAPTER_CONFIG_PATH`：指向一个 json 文件路径（构建阶段可用 COPY 注入）
-
-否则融合脚本会报错并提示你补齐配置。
-
-### WSL/本地运行（创建 Python 虚拟环境）
-
-在 WSL（Ubuntu 24.04 等）里，如果你发现 `python3 -m venv` 报 `ensurepip is not available`，说明系统没装 venv/pip 组件。
-
-1. 安装系统依赖（需要输入 sudo 密码）：
-
-```bash
-sudo apt update
-sudo apt install -y python3.12-venv python3-pip
-```
-
-1. 创建并激活虚拟环境：
-
-```bash
-cd /path/to/metax-llm-public
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -U pip setuptools wheel
-```
-
-1. 安装 merge 所需 Python 依赖（推荐用最小集合）：
-
-```bash
-pip install -r requirements-merge.txt
-```
-
-1. 安装 PyTorch
-
-- CPU-only（WSL/无 GPU 最稳）：
-
-```bash
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-```
-
-1. 运行融合：
-
-```bash
-python merge_adapter.py \
-  --base_model Qwen/Qwen2.5-0.5B \
-  --adapter_repo_url https://gitee.com/yukinostuki/qwen2.5-0.5b-plus.git \
-  --output_dir ./merged
-```
-
-如果你的 adapter 仓库里缺 `adapter_config.json`，按上文用 `ADAPTER_CONFIG_JSON` 或 `ADAPTER_CONFIG_PATH` 提供即可。
-
-# 大模型推理服务模板(MetaX 沐曦)
-
-本项目是一个极简的大模型推理服务模板，旨在帮助您快速构建一个可以通过API调用的推理服务器。
-
-## 默认模型（ModelScope）
-
-当前仓库默认直接从 ModelScope 下载模型权重：`YukinoStuki/Qwen2.5-0.5B-Plus-LLM`。
-
-- 构建阶段由 `download_model.py` 下载到 `./model/$MODEL_ID`
-
-- 运行阶段默认从 `MODEL_DIR=./model/$MODEL_ID` 加载（见 `Dockerfile` / `serve.py`）
-
-默认 revision 为 `master`（可通过 `MODEL_REVISION` 覆盖，例如 tag/分支名）。
-
-## 项目结构
-
-- `Dockerfile`: 用于构建容器镜像的配置文件，MetaX提供docker构建流程，该文件中
-
-  - `FROM`是通过拉取服务器中已存在的docker，因此不要进行改动
-
-  - `EXPOSE`的端口是作为评测的主要接口，因此不要随意变动
-
-- `serve.py`: 推理服务的核心代码，您需要在此文件中修改和优化您的模型加载与推理逻辑
-
-  - `model_local_dict`: 是将模型映射到本地模型的dict
-
-  - Notes: 这个程序不能访问Internet。
-
-- `requirements.txt`: Python依赖列表。您可以添加需要的库。
-
-- `.gitignore`: Git版本控制忽略的文件列表。
-
-- `download_model.py`: 下载权重的脚本，不建议进行修改，模型参数、下载位置和版本都可以在`Dockerfile`中进行调整
-
-  - `--model_name`: 模型名称，该名称是在modelscope中可以被检索的，例如：需要下载`DeepSeek-V3.2`,在modelscope中可知，`model_name`为`deepseek-ai/DeepSeek-V3.2`, 那么配置为`deepseek-ai/DeepSeek-V3.2`即可从modelscope中下载模型，如果您需要下载自己的微调模型，可以在modelscope中上传自己的模型，并调整该参数即可使用；
-
-  - `--cache_dir`: 模型缓存地址，该地址是model存储的位置，例如指定下载`DeepSeek-V3.2`，在`/app`路径中，那么模型存放的位置在`/app/deepseek-ai/DeepSeek-V3.2`中；
-
-  - `--revision`: 模型参数的Git版本，该版本对应modelscope仓库中的版本，您可根据自己微调数个版本，上传到同一仓库中，拉取时采用不同版本的revision即可；
-
-  - Notes: 如果您的模型为非公开，请打开`download_model.py`进行相应的配置，本模板已将该部分注释([代码](download_model.py#L16-L17))，对注释内容取消注释并注入相应的内容即可配置非公开模型。在使用非公开模型时，建议在非judge环境中进行download_model的环境验证，以免浪费judge次数。
-
-- `README.md`: 本说明文档
-
-## 如何修改
-
-您需要关注的核心文件是 `serve.py`.
-
-您可以完全替换`serve.py`的内容，只要保证容器运行后，能提供模板中的'/predict'和'/'等端点即可。
-
-## 评测系统的规则
-
-评测系统会向 /predict 端点发送 POST 请求，其JSON body格式为:
-
-```json
-{
-  "prompt": "Your question here"
-}
-```
-
-您的服务必须能够正确处理此请求，并返回一个JSON格式的响应，格式为:
-
-```json
-{
-  "response": "Your model's answer here"
-}
-```
-
-请务必保持此API契约不变！
-
-## Batch 推理（推荐提速）
-
-评测系统在访问健康检查 `GET /` 时，如果返回 `{"status":"batch"}`，会进入 batch 模式：随后会把所有问题一次性推送到 `POST /predict`。
-
-本仓库默认开启 batch（见 `Dockerfile` 的 `BATCH_MODE=1`）：
-
-- 单条模式：`{"prompt": "..."}` → `{"response": "..."}`
-
-- Batch 模式：`{"prompt": ["...", "...", ...]}` → `{"response": ["...", "...", ...]}`
-
-本地评测脚本支持 batch 调用：
-
-```bash
-python eval_local.py --batch --strip_q_suffix --which bonus --max_n 50
-```
+以下内容是旧文档，暂未完全重排（暂时忽略以下内容）：
 
 ## 自动化调参（auto_tune.py）
 
@@ -612,105 +772,4 @@ export TUNE_SMTP_SSL=1
 ./auto_tune.sh
 ```
 
-## Speculative Decoding（冲吞吐，可选）
-
-本仓库已在 [serve.py](serve.py) 接入 vLLM 的 speculative decoding（需要一个 draft 小模型）。
-
-- 启用方式（运行期）：
-
-  - `ENABLE_SPECULATIVE_DECODING=1`
-
-  - 两种模式：
-
-    - draft 模型（推荐）：指定 `SPEC_DRAFT_MODEL_DIR=/app/model/<draft>`（或用 `SPEC_DRAFT_MODEL_ID` 让构建期下载），并保持 `SPEC_METHOD=draft_model`
-
-    - ngram（无需 draft，快速试验）：`SPEC_METHOD=ngram`，可调 `SPEC_NGRAM_LOOKUP_MAX=8`/`SPEC_NGRAM_LOOKUP_MIN=1`
-
-  - 可调：`SPEC_NUM_SPECULATIVE_TOKENS=6`（建议 4\~8）
-
-- 构建期下载 draft（Dockerfile 已透传参数，默认 draft 下载失败不阻断构建）：
-
-  - `SPEC_DRAFT_MODEL_ID=<ModelScope 模型 ID>`
-
-  - `SPEC_DRAFT_MODEL_REVISION=master`
-
-注意：vLLM 当前实现中 speculative decoding 与 chunked prefill 不兼容；当启用 speculative 时，服务端会强制关闭 `enable_chunked_prefill`。
-
-## AWQ 量化（AutoAWQ，覆盖上传同名模型）
-
-说明：部分环境/架构不支持 Marlin kernel，因此此前 compressed-tensors 路线可能无法运行。这里提供 AutoAWQ 量化脚本，输出目录固定为 `model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ`，可直接用上传脚本覆盖同名仓库。
-
-1. 安装量化依赖（建议单独虚拟环境；不修改线上 serving 的 requirements.txt）：
-
-```bash
-python -m venv .venv-awq
-source .venv-awq/bin/activate
-
-pip install -U pip setuptools wheel
-
-# 先安装 transformers 等轻依赖（避免 autoawq 自动升级 torch 破坏环境）
-pip install -r requirements-quantize-awq.txt
-
-# 再安装 autoawq（不自动拉取/升级 torch）
-pip install --no-deps autoawq==0.2.9
-```
-
-1. 量化并导出到固定目录：
-
-```bash
-python quantize_awq_llmcompressor.py \
-  --model_dir model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM \
-  --calib_jsonl calib_512.jsonl \
-  --output_dir model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ
-```
-
-1. 上传并覆盖 ModelScope 上同名仓库：
-
-```bash
-python upload_model.py \
-  --repo-id YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ \
-  --model-dir model/YukinoStuki/Qwen2.5-0.5B-Plus-LLM-AWQ \
-  --commit-message "overwrite awq (autoawq)"
-```
-
-## 环境说明
-
-### 软件包版本
-
-主要软件包(vllm:maca.ai3.1.0.7-torch2.6-py310-ubuntu22.04-amd64)版本如下：
-
-|软件|版本|
-|-|-|
-|python|3.10|
-|ubuntu|22.04|
-|pytorch|2.6|
-|vLLM|0.10.0|
-
-`软件使用的Note`:
-
-- 如果您需要其他的镜像，请您先查询[沐曦开发者社区](https://developer.metax-tech.com/softnova/docker)，查找您需要的docker镜像，后联系龚昊助教添加相应的镜像。
-
-- 建议您先在`OpenHydra`中使用添加的软件，避免软件兼容性带来的问题（非GPU相关的软件都可以兼容，GPU相关软件或依赖GPU相关软件的软件建议验证后使用）。
-
-- `OpenHydra`的访问地址请查询`沐曦GPU实验平台操作手册`，欢迎您的使用。
-
-### judge平台的配置说明
-
-judge机器的配置如下：
-
-``` text
-os: ubuntu24.04
-cpu: 24核
-内存: 200GB
-磁盘: 1T
-GPU: MXC500(显存：64GB)
-网络带宽：100Mbps
-```
-
-judge系统的配置如下：
-
-``` text
-docker build stage: 900s
-docker run - health check stage: 180s
-docker run - predict stage: 360s
-```
+## 

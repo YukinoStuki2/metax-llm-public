@@ -72,6 +72,16 @@ const config = {
             label: '文档',
           },
           {
+            to: '/docs/quickstart',
+            label: '快速开始',
+            position: 'left',
+          },
+          {
+            to: '/docs/webui/overview',
+            label: 'WebUI',
+            position: 'left',
+          },
+          {
             href: 'https://github.com/YukinoStuki2/metax-llm-public',
             label: 'GitHub',
             position: 'right',

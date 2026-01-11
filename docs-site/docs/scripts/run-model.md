@@ -43,7 +43,7 @@ export MAX_MODEL_LEN=2048
 ./run_model.sh
 ```
 
-> 注意：Dockerfile / run_model.sh / env_force.sh 三处的默认参数可能不完全一致；评测机以 Dockerfile 为准。
+> 说明：Dockerfile / run_model.sh / env_force.sh 的默认参数应保持一致；若你修改了其中之一，请同步检查另外两处，避免出现“本地好/线上坏”。
 
 ## 关键变量速查（与 Dockerfile 同名）
 

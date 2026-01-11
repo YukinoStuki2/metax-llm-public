@@ -57,26 +57,14 @@ Github仓库（用于具体开发）：<https://github.com/YukinoStuki2/metax-ll
 
 **测试时使用Gitee提供的沐曦算力服务器和系统镜像进行部署，实测没有问题，其他平台上请注意前置依赖是否满足。**
 
-### 2.1 构建镜像（会在 build 阶段下载模型）
+### 2.1 使用Docker启动（评测系统无webui）
 
-```bash
-docker build -t metax-llm-public:latest .
-```
+**！沐曦容器上无法直接用docker启动**
 
-默认会从 ModelScope 下载 Dockerfile 中配置的模型：
-
-- `MODEL_ID`：模型仓库 ID（例如 `YukinoStuki/...`）
-
-- `MODEL_REVISION`：分支/Tag/commit（默认 `master`）
-
-如需切换模型/版本：修改 Dockerfile 里的 `ENV MODEL_ID=...` / `ENV MODEL_REVISION=...` 后重新 build。
-
-### 2.2 运行容器
-
-本地自测（NVIDIA GPU 环境示例）：
-
-```bash
-docker run --rm --gpus all -p 8000:8000 metax-llm-public:latest
+``` text
+docker build stage: 900s
+docker run - health check stage: 180s
+docker run - predict stage: 360s
 ```
 
 启动后自测健康检查：
@@ -93,7 +81,7 @@ curl -s http://127.0.0.1:8000/predict \
   -d '{"prompt":"请简要回答：什么是xxx？"}'
 ```
 
-### 2.3 API 契约（必须保持不变）
+### 2.2 API 契约（必须保持不变）
 
 - 评测机将按照如下方式调用服务（**不要破坏**）：
 
@@ -115,7 +103,7 @@ curl -s http://127.0.0.1:8000/predict \
 
   - batch 响应格式：`{"response":["...","...",...]}`（答案数量需与问题数量一致）
 
-### 2.4 评测机环境（参考配置）
+### 2.3 评测机环境（参考配置）
 
 评测机常见配置（沐曦赛道示例）：
 
