@@ -10,8 +10,8 @@ sidebar_position: 1
 
 相关仓库：
 
-- Gitee（用于实际提交/评测）：<https://gitee.com/yukinostuki/metax-demo>
-- GitHub（用于开发）：<https://github.com/YukinoStuki2/metax-llm-public>
+- Gitee（用于实际提交/评测）：[https://gitee.com/yukinostuki/metax-demo](https://gitee.com/yukinostuki/metax-demo)
+- GitHub（用于开发）：[https://github.com/YukinoStuki2/metax-llm-public](https://github.com/YukinoStuki2/metax-llm-public)
 
 > 两个仓库仅文件数量不同（Gitee 为评测白名单裁剪版），代码与版本保持同步。
 
@@ -40,4 +40,4 @@ sidebar_position: 1
 - 从「快速开始」开始：Docker 启动 / WebUI 启动 / API 自测
 - 需要本地复现或调参：看「启动脚本（run_model.sh / env_force.sh）」与「推理服务（serve.py）」
 
-文档站：<https://docs-gpu.yukino.uk>
+文档站：[https://docs-gpu.yukino.uk](https://docs-gpu.yukino.uk)

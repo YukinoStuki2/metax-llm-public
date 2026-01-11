@@ -29,7 +29,7 @@ bash ./run_model.sh
 ./start_webui.sh
 ```
 
-浏览器访问：<http://localhost:7860>
+浏览器访问：[http://localhost:7860](http://localhost:7860)
 
 > WebUI 侧还提供生成参数面板、SYSTEM_PROMPT 编辑、RAG/Batch 测试等，详见「[WebUI（Gradio）](webui/overview)」。
 
