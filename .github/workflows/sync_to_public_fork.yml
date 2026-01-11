@@ -29,6 +29,9 @@ jobs:
           # 1.5) Remove internal project notes
           rm -f "项目情况.txt" || true
 
+          # 1.8) Do not sync docs-site to the public fork
+          rm -rf docs-site || true
+
           # 2) Remove all GitHub Actions workflows (must not be public)
           rm -rf .github/workflows || true
 

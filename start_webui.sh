@@ -12,7 +12,7 @@ WEBUI_SHARE="${WEBUI_SHARE:-0}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 echo "========================================"
-echo "🌐 启动 Qwen3-4B Plus WebUI"
+echo "🌐 启动 Qwen2.5-0.5B Plus WebUI"
 echo "========================================"
 echo "虚拟环境: ${VENV_PATH}"
 echo "后端 API: ${API_BASE_URL}"

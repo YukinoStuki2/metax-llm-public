@@ -8,14 +8,25 @@ sidebar_position: 110
 当前内容：
 
 ```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 快速本地评测封装：优先贴近线上 batch 行为。
 MODEL_DIR=${MODEL_DIR:-./model/merged}
-python eval_local.py --which basic --strip_q_suffix --model_dir_for_tokenizer "$MODEL_DIR"
+WHICH=${WHICH:-bonus}
+
+python3 eval_local.py \
+	--which "$WHICH" \
+	--batch \
+	--overwrite_jsonl \
+	--model_dir_for_tokenizer "$MODEL_DIR"
 ```
 
 你可以用它做“最短路径”回归：
 
-1) 启动服务：`./run_model.sh`
-2) 运行评测：`./judge.sh`
+1. 启动服务：`./run_model.sh`
+
+2. 运行评测：`./judge.sh`
 
 如果你更希望贴近线上行为，建议直接用：
 
