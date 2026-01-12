@@ -65,15 +65,37 @@ export default function HeroBackdrop() {
 
       ctx.clearRect(0, 0, width, height);
 
-      // soft vignette
+      // soft vignette with multiple layers
       const t = state.t;
-      const cx = width * (0.55 + 0.04 * Math.sin(t / 520));
-      const cy = height * (0.25 + 0.03 * Math.cos(t / 610));
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height));
-      g.addColorStop(0, 'rgba(99,102,241,0.12)');
-      g.addColorStop(0.55, 'rgba(34,211,238,0.08)');
+      const cx = width * (0.55 + 0.06 * Math.sin(t / 480));
+      const cy = height * (0.25 + 0.04 * Math.cos(t / 580));
+      
+      // Primary purple glow
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.85);
+      g.addColorStop(0, 'rgba(99,102,241,0.18)');
+      g.addColorStop(0.4, 'rgba(139,92,246,0.12)');
+      g.addColorStop(0.7, 'rgba(34,211,238,0.08)');
       g.addColorStop(1, 'rgba(2,6,23,0)');
       ctx.fillStyle = g;
+      ctx.fillRect(0, 0, width, height);
+      
+      // Secondary cyan accent
+      const cx2 = width * (0.75 + 0.05 * Math.cos(t / 420));
+      const cy2 = height * (0.65 + 0.04 * Math.sin(t / 520));
+      const g2 = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, Math.max(width, height) * 0.5);
+      g2.addColorStop(0, 'rgba(34,211,238,0.10)');
+      g2.addColorStop(0.5, 'rgba(99,102,241,0.05)');
+      g2.addColorStop(1, 'rgba(2,6,23,0)');
+      ctx.fillStyle = g2;
+      ctx.fillRect(0, 0, width, height);
+      
+      // Tertiary pink accent
+      const cx3 = width * (0.20 + 0.04 * Math.sin(t / 550));
+      const cy3 = height * (0.80 + 0.03 * Math.cos(t / 480));
+      const g3 = ctx.createRadialGradient(cx3, cy3, 0, cx3, cy3, Math.max(width, height) * 0.4);
+      g3.addColorStop(0, 'rgba(236,72,153,0.08)');
+      g3.addColorStop(1, 'rgba(2,6,23,0)');
+      ctx.fillStyle = g3;
       ctx.fillRect(0, 0, width, height);
 
       // points
@@ -86,13 +108,24 @@ export default function HeroBackdrop() {
         if (p.y > height + 20) p.y = -20;
 
         ctx.beginPath();
-        ctx.fillStyle = 'rgba(148,163,184,0.30)';
+        // Gradient color based on position
+        const hue = 240 + (p.x / width) * 30;
+        const sat = 70 + (p.y / height) * 20;
+        ctx.fillStyle = `hsla(${hue}, ${sat}%, 70%, 0.45)`;
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Add subtle glow to larger points
+        if (p.r > 1.5) {
+          ctx.beginPath();
+          ctx.fillStyle = `hsla(${hue}, ${sat}%, 70%, 0.15)`;
+          ctx.arc(p.x, p.y, p.r * 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
-      // links
-      ctx.lineWidth = 1;
+      // links with gradient effect
+      ctx.lineWidth = 1.2;
       for (let i = 0; i < points.length; i++) {
         const a = points[i];
         for (let j = i + 1; j < points.length; j++) {
@@ -100,10 +133,17 @@ export default function HeroBackdrop() {
           const dx = a.x - b.x;
           const dy = a.y - b.y;
           const d2 = dx * dx + dy * dy;
-          const maxD = 170;
+          const maxD = 200;
           if (d2 > maxD * maxD) continue;
           const alpha = 1 - Math.sqrt(d2) / maxD;
-          ctx.strokeStyle = `rgba(99,102,241,${0.16 * alpha})`;
+          
+          // Create gradient for lines
+          const gradient = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+          gradient.addColorStop(0, `rgba(99,102,241,${0.22 * alpha})`);
+          gradient.addColorStop(0.5, `rgba(34,211,238,${0.18 * alpha})`);
+          gradient.addColorStop(1, `rgba(139,92,246,${0.22 * alpha})`);
+          
+          ctx.strokeStyle = gradient;
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(b.x, b.y);
