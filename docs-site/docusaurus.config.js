@@ -122,6 +122,15 @@ const config = {
               },
             ],
           },
+          {
+            title: '联系',
+            items: [
+              {
+                label: 'yukinostuki@qq.com',
+                href: 'mailto:yukinostuki@qq.com',
+              },
+            ],
+          },
         ],
         copyright: `Copyright © ${new Date().getFullYear()} YukinoStuki2. Built with Docusaurus.`,
       },

@@ -68,7 +68,9 @@ function HomepageHeader() {
           </div>
 
           <div className={styles.note}>
-            2025年秋季中国科学院大学《GPU架构与编程》摩尔线程一等奖。
+            <span className={styles.noteText}>
+              2025年秋季中国科学院大学《GPU架构与编程》摩尔线程一等奖。
+            </span>
           </div>
         </div>
 

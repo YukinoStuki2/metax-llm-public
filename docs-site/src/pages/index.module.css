@@ -240,7 +240,9 @@
 .note {
   margin-top: 1.35rem;
   font-size: 0.95rem;
-  color: rgba(30, 27, 75, 0.92);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 700;
+  letter-spacing: 0.01em;
   padding: 0.8rem 1.05rem;
   border-radius: 14px;
   border: 1px solid transparent;
@@ -249,12 +251,65 @@
   backdrop-filter: blur(10px);
   background:
     linear-gradient(180deg, rgba(99, 102, 241, 0.10), rgba(34, 211, 238, 0.05)) padding-box,
-    var(--neo-gradient-animated) border-box;
-  background-size: auto, 320% 320%;
+    linear-gradient(270deg, #8b5cf6, #6366f1, #3b82f6, #6366f1) border-box;
+  background-size: auto, 260% 260%;
   animation: gradientShift 6s ease infinite;
   box-shadow:
     0 14px 44px rgba(2, 6, 23, 0.10),
     0 0 34px rgba(99, 102, 241, 0.14);
+  text-shadow:
+    0 0 18px rgba(99, 102, 241, 0.35),
+    0 8px 22px rgba(2, 6, 23, 0.25);
+}
+
+.noteText {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  /* fallback */
+  color: inherit;
+}
+
+@supports (-webkit-background-clip: text) {
+  .noteText {
+    /* Metallic silver-white with cool highlights */
+    background:
+      repeating-linear-gradient(
+        110deg,
+        rgba(255, 255, 255, 0.00) 0px,
+        rgba(255, 255, 255, 0.00) 10px,
+        rgba(255, 255, 255, 0.12) 14px,
+        rgba(255, 255, 255, 0.00) 22px
+      ),
+      linear-gradient(
+        90deg,
+        rgba(248, 250, 252, 0.98) 0%,
+        rgba(226, 232, 240, 0.98) 14%,
+        rgba(255, 255, 255, 1.00) 28%,
+        rgba(203, 213, 225, 0.96) 44%,
+        rgba(241, 245, 249, 0.98) 58%,
+        rgba(191, 219, 254, 0.92) 74%,
+        rgba(248, 250, 252, 0.98) 100%
+      );
+    background-size: 260% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: noteTextShift 3.8s ease-in-out infinite;
+    filter:
+      drop-shadow(0 0 10px rgba(99, 102, 241, 0.28))
+      drop-shadow(0 0 18px rgba(59, 130, 246, 0.16));
+  }
+}
+
+@keyframes noteTextShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 .note::before {
@@ -262,8 +317,8 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(700px 120px at 20% 20%, rgba(99, 102, 241, 0.16), transparent 55%),
-    radial-gradient(520px 110px at 85% 80%, rgba(34, 211, 238, 0.10), transparent 55%);
+    radial-gradient(700px 120px at 18% 22%, rgba(139, 92, 246, 0.18), transparent 55%),
+    radial-gradient(520px 110px at 86% 78%, rgba(59, 130, 246, 0.14), transparent 55%);
   opacity: 0.9;
   pointer-events: none;
 }
@@ -309,10 +364,13 @@
   color: rgba(226, 232, 240, 0.92);
   background:
     linear-gradient(180deg, rgba(99, 102, 241, 0.14), rgba(34, 211, 238, 0.06)) padding-box,
-    var(--neo-gradient-animated) border-box;
+    linear-gradient(270deg, #8b5cf6, #6366f1, #3b82f6, #6366f1) border-box;
   box-shadow:
     0 18px 54px rgba(0, 0, 0, 0.45),
     0 0 40px rgba(99, 102, 241, 0.18);
+  text-shadow:
+    0 0 22px rgba(99, 102, 241, 0.45),
+    0 10px 26px rgba(0, 0, 0, 0.35);
 }
 
 .heroPanel {
@@ -432,6 +490,9 @@
   .note::after {
     animation: none;
     opacity: 0;
+  }
+  .noteText {
+    animation: none;
   }
 }
 
