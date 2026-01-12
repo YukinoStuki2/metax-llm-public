@@ -5,6 +5,14 @@
 
 .col {
   margin-bottom: 1.25rem;
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+  transition: opacity 520ms ease, transform 520ms ease;
+}
+
+.col[data-visible='true'] {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 .featureCard {
@@ -20,6 +28,14 @@
   display: flex;
   gap: 1rem;
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .col {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 [data-theme='dark'] .featureCard {

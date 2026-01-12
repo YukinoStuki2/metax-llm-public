@@ -70,6 +70,14 @@
 	- If you plan to use `python`/`python3` directly, first confirm you are in the venv (e.g. `echo $VIRTUAL_ENV`) and that it points to this repo’s `.venv`.
 	- Likewise, use `./.venv/bin/pip` for installs to avoid contaminating system Python.
 
+- Node / Docusaurus commands (IMPORTANT for WSL + bundled toolchain):
+	- This repo bundles Node.js under `.tools/node/`. When running docs-site commands, ALWAYS use the bundled toolchain instead of any system/Windows Node.
+	- Before any `npm`/`npx`/`node` command, export PATH to prefer the bundled binaries:
+		- `cd /home/yukinostuki/metax-demo-mirror && export PATH="$PWD/.tools/node/bin:$PATH"`
+	- Then run commands from `docs-site/` (example build command):
+		- `cd docs-site && npm run build --silent`
+	- Do NOT run `npm` without the PATH override; new agent sessions may otherwise resolve to Windows/system Node and fail (e.g. `/usr/bin/env: 'node': No such file or directory`).
+
 - Other commands (general rule):
 	- Before executing, verify the required environment exists (e.g. tool installed, file/dir present, correct working directory).
 	- Examples: check `.venv/` exists before Python work; check `requirements*.txt` exists before installs; check Docker availability before docker commands; check model directories exist before starting the server.

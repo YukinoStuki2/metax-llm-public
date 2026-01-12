@@ -10,8 +10,6 @@
 
 - 🧭 使用说明
 
-- 🧩 API 契约
-
 - 🗂️ 文件/目录说明
 
 ---
@@ -47,6 +45,12 @@ Github仓库（用于具体开发）：<https://github.com/YukinoStuki2/metax-ll
   - `POST /predict`：推理接口（见下文 API 契约）
 
 - 端口：保持 `8000`。
+
+- `GET /` 返回 `{"status":"batch"}`，评测系统会将所有问题一次性推到 `POST /predict`。
+
+  * batch 请求格式：`{"prompt":["...","...",...]}`
+
+  * batch 响应格式：`{"response":["...","...",...]}`（答案数量需与问题数量一致）
 
 - 评测机配置：
 
@@ -115,9 +119,9 @@ bash ./run_model.sh
 ssh -CNg -L 7860:127.0.0.1:7860 root+<username>@<IP> -p <PORT>
 ```
 
-### 🐳 使用 Docker 启动（评测系统无 WebUI）
+### 🐳 使用 Docker 启动（评测系统无 WebUI，不保证一定能正常运行，我没评测机的具体程序）
 
-**注意：沐曦容器上无法直接用 Docker 启动（需要按平台提供的评测方式运行）。**
+**注意：沐曦容器上无法直接用 Docker 启动。**
 
 本地自测：
 
@@ -153,14 +157,6 @@ curl -s http://127.0.0.1:8000/predict \
 ## 🧭 使用说明
 
 使用本仓库的一些脚本可以便捷地完成各种操作。
-
-参数分工：
-
-- `env_force.sh`：**强制导入**一套“干净”的默认参数（必须用 `source`）。
-
-- `run_model.sh`：启动后端服务；**不会强制覆盖**已设置的环境变量（变量未设置时给默认值）。
-
-- 想临时覆盖某个参数：`MODEL_ID=... MAX_NEW_TOKENS=... ./run_model.sh` 或先 `export` 再启动。
 
 ### ✅ WebUI
 
@@ -219,6 +215,8 @@ MODEL_DIR=./model/YukinoStuki/Qwen3-4B-Plus-LLM SKIP_MODEL_DOWNLOAD=1 bash ./run
 最常用的推理参数（启动前覆盖即可）：
 
 ```bash
+# 刷新全部默认变量
+source ./env_force.sh
 # 控制输出长度 / 吞吐
 MAX_NEW_TOKENS=128 MAX_MODEL_LEN=4096 \
 # 解码稳定性
@@ -271,7 +269,7 @@ curl -s http://127.0.0.1:8000/predict \
 
 评测脚本会调用后端 `/predict`，所以**先启动后端**再跑评测。
 
-方式一：使用封装脚本（basic是基础题，bonus是加分题，修改WHICH参数）：
+方式一：使用封装脚本（出问题了请用方法二）：
 
 ```bash
 source ./env_force.sh
@@ -314,7 +312,7 @@ bash ./run_model.sh
 
 ### ✅ 量化
 
-仓库内提供 AWQ 量化脚本 [quantize_awq.py](quantize_awq.py)（AutoAWQ 4bit，参数内置偏保准确率；建议单独虚拟环境安装量化依赖，避免污染线上推理环境）。
+仓库内提供 AWQ 量化脚本 [quantize_awq.py](quantize_awq.py)（AutoAWQ 4bit，参数内置偏保准确率；**单独虚拟环境安装量化依赖**，AutoAWQ和vllm冲突）。
 
 1）安装量化依赖：
 
@@ -326,8 +324,8 @@ python -m pip install -U pip setuptools wheel
 # 先安装 transformers 等轻依赖（避免 autoawq 自动升级 torch 破坏环境）
 python -m pip install -r requirements-quantize-awq.txt
 
-# 再安装 autoawq（提供 awq 包；用 --no-deps 避免其拉取/升级 torch）
-python -m pip install --no-deps autoawq==0.2.9
+# 再安装 autoawq
+python -m pip install autoawq==0.2.9
 ```
 
 2）生成校准集（`quantize_awq.py` 期望 jsonl 每行 `{"text":"..."}`；示例：8192 条，最大长度 2048 字符）：
@@ -472,32 +470,6 @@ TUNE_PORT_BUSY_KILL=1 ./auto_tune.sh
 
 ---
 
-## 🧩 API 契约
-
-评测机将按照如下方式调用服务（**不要破坏**）：
-
-- 端口：`8000`
-
-- `GET /`：健康检查
-
-- `POST /predict`：
-
-  - 请求 JSON：`{"prompt":"..."}`
-
-  - 响应 JSON：`{"response":"..."}`
-
-本项目也支持 batch：
-
-- 当 `BATCH_MODE=1` 时，`GET /` 会返回 `{"status":"batch"}`，评测系统会将所有问题一次性推到 `POST /predict`。
-
-- batch 请求格式：`{"prompt":["...","...",...]}`
-
-- batch 响应格式：`{"response":["...","...",...]}`（答案数量需与问题数量一致）
-
-建议：若模型输出包含 `<think>...</think>`，请在返回前剥离，避免影响评测。
-
----
-
 ## 🗂️ 文件/目录说明
 
 ### 根目录（核心脚本与配置）
@@ -509,7 +481,7 @@ TUNE_PORT_BUSY_KILL=1 ./auto_tune.sh
 |`Dockerfile`|评测用镜像构建入口：安装依赖、下载/准备模型，并以 `serve.py` 提供 HTTP 服务。|
 |`DEPLOY.md`|部署相关说明（如环境、启动方式、注意事项）。|
 |`QUICKREF.md`|常用命令速查（本地评测、启动、调参等）。|
-|`README.md`|GitHub 主 README（你正在阅读的这份）。|
+|`README.md`|GitHub 主 README。|
 |`README_GITEE.md`|Gitee 提交/评测用精简 README（同步工作流会用它覆盖到 Gitee 的 README）。|
 |`README_WEBUI.md`|WebUI 使用说明与常见问题。|
 |`env_force.sh`|**强制导入**一整套默认环境变量（用于清理上次遗留变量；需用 `source` 执行）。|

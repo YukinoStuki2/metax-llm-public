@@ -1,3 +1,4 @@
+import React, {useEffect, useRef} from 'react';
 import clsx from 'clsx';
 import Heading from '@theme/Heading';
 import Link from '@docusaurus/Link';
@@ -66,8 +67,35 @@ const FeatureList = [
 ];
 
 function Feature({Svg, title, description}) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      el.dataset.visible = 'true';
+      return undefined;
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const ent of entries) {
+          if (ent.isIntersecting) {
+            ent.target.dataset.visible = 'true';
+            io.unobserve(ent.target);
+          }
+        }
+      },
+      {root: null, rootMargin: '0px 0px -10% 0px', threshold: 0.15}
+    );
+
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <div className={clsx('col col--6', styles.col)}>
+    <div ref={ref} className={clsx('col col--6', styles.col)} data-visible="false">
       <div className={styles.featureCard}>
         <div className={styles.iconWrap}>
           <Svg className={styles.featureSvg} role="img" />

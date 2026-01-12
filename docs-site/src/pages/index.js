@@ -1,16 +1,51 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
+import HeroBackdrop from '@site/src/components/HeroBackdrop';
 
 import styles from './index.module.css';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
+  const heroRef = useRef(null);
+
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return undefined;
+
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return undefined;
+
+    const onMove = (e) => {
+      const r = el.getBoundingClientRect();
+      const x = (e.clientX - r.left) / Math.max(1, r.width);
+      const y = (e.clientY - r.top) / Math.max(1, r.height);
+      el.style.setProperty('--mx', String(x));
+      el.style.setProperty('--my', String(y));
+    };
+
+    const onLeave = () => {
+      el.style.setProperty('--mx', '0.5');
+      el.style.setProperty('--my', '0.35');
+    };
+
+    // init
+    onLeave();
+
+    el.addEventListener('pointermove', onMove, {passive: true});
+    el.addEventListener('pointerleave', onLeave, {passive: true});
+    return () => {
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerleave', onLeave);
+    };
+  }, []);
+
   return (
-    <header className={clsx(styles.hero)}>
+    <header ref={heroRef} className={clsx(styles.hero)}>
+      <HeroBackdrop />
       <div className={styles.heroInner}>
         <div className={styles.heroContent}>
           <div className={styles.eyebrow}>metax-llm-public · 推理服务与评测工程</div>
