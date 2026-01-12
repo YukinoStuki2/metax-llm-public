@@ -148,6 +148,50 @@ html {
   }
 }
 
+/* =====================
+ * Category index cards (generated-index)
+ * ===================== */
+
+/* Docusaurus category pages use CSS modules with stable prefixes like generatedIndexPage_*.
+ * Target by prefix so the styling survives hash changes.
+ */
+div[class^='generatedIndexPage_'] a.card {
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.20);
+  background:
+    radial-gradient(900px 220px at 18% 0%, rgba(99, 102, 241, 0.16), transparent 55%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.42), rgba(2, 6, 23, 0.22));
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.20) inset,
+    0 14px 46px rgba(0, 0, 0, 0.45);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 220ms ease, filter 180ms ease;
+}
+
+div[class^='generatedIndexPage_'] a.card:hover {
+  border-color: rgba(99, 102, 241, 0.52);
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.20) inset,
+    0 20px 64px rgba(0, 0, 0, 0.55),
+    0 0 26px rgba(99, 102, 241, 0.20);
+}
+
+div[class^='generatedIndexPage_'] a.card h2 {
+  letter-spacing: 0.01em;
+}
+
+div[class^='generatedIndexPage_'] a.card p {
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  div[class^='generatedIndexPage_'] a.card,
+  div[class^='generatedIndexPage_'] a.card:hover {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
 /* Navbar: glass + neon border */
 .navbar {
   backdrop-filter: blur(12px);
