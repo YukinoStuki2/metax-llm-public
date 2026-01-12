@@ -53,11 +53,11 @@ function HomepageHeader() {
           <p className={styles.subtitle}>{siteConfig.tagline}</p>
 
           <div className={styles.ctaRow}>
-            <Link className={clsx('button button--lg', styles.ctaPrimary)} to="/docs/quickstart">
-              快速开始
+            <Link className={clsx('button button--lg', styles.ctaPrimary)} to="/docs/guide">
+              开始
             </Link>
-            <Link className={clsx('button button--lg', styles.ctaSecondary)} to="/docs/guide">
-              导航
+            <Link className={clsx('button button--lg', styles.ctaSecondary)} to="/docs/quickstart">
+              快速启动
             </Link>
             <Link
               className={clsx('button button--lg', styles.ctaGhost)}

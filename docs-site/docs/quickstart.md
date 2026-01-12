@@ -2,11 +2,12 @@
 sidebar_position: 3
 ---
 
-# 快速开始
+# 快速启动
 
 本项目提供两种启动方式：
 
 - 本地/云主机：`env_force.sh + run_model.sh` 启动后端，可选再启动 WebUI。
+
 - 评测形态：Docker 构建并运行（评测系统通常不包含 WebUI）。
 
 ## 使用 WebUI（推荐本地调试）
@@ -29,7 +30,7 @@ bash ./run_model.sh
 ./start_webui.sh
 ```
 
-浏览器访问：[http://localhost:7860](http://localhost:7860)
+浏览器访问：<http://localhost:7860>
 
 > WebUI 侧还提供生成参数面板、SYSTEM_PROMPT 编辑、RAG/Batch 测试等，详见「[WebUI（Gradio）](webui/overview)」。
 
