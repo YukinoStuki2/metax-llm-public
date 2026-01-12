@@ -66,7 +66,10 @@ export default function HeroBackdrop() {
       ctx.clearRect(0, 0, width, height);
 
       // soft vignette
-      const g = ctx.createRadialGradient(width * 0.55, height * 0.25, 0, width * 0.55, height * 0.25, Math.max(width, height));
+      const t = state.t;
+      const cx = width * (0.55 + 0.04 * Math.sin(t / 520));
+      const cy = height * (0.25 + 0.03 * Math.cos(t / 610));
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height));
       g.addColorStop(0, 'rgba(99,102,241,0.12)');
       g.addColorStop(0.55, 'rgba(34,211,238,0.08)');
       g.addColorStop(1, 'rgba(2,6,23,0)');

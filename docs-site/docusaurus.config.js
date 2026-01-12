@@ -56,7 +56,9 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       colorMode: {
-        respectPrefersColorScheme: true,
+        // 默认进入暗色模式（首次访问）。用户仍可通过切换按钮覆盖（localStorage 会记住）。
+        defaultMode: 'dark',
+        respectPrefersColorScheme: false,
       },
       navbar: {
         title: 'metax-llm-public',
