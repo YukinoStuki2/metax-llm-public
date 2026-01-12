@@ -80,7 +80,7 @@ const config = {
             },
           {
             to: '/docs/quickstart',
-            label: '快速开始',
+            label: '快速启动',
             position: 'left',
           },
           {

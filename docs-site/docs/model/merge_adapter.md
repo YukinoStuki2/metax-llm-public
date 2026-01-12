@@ -5,14 +5,14 @@ sidebar_position: 70
 
 # 融合 LoRA Adapter 脚本详解
 
-## 一、脚本功能概述
+## 1) 脚本功能概述
 
 ### 1.1 作用与定位
 
-`merge_adapter.py` 用于把一个 LoRA/PEFT adapter 仓库合并进 base model，导出一个可直接推理的“完整模型目录”。它主要面向以下场景：
+`merge_adapter.py` 用于把一个 LoRA/PEFT adapter 仓库合并进 base model，导出一个可直接推理的“完整模型目录”。主要面向以下场景：
 
-- 你有一个 base model（在 ModelScope 上），也有一个 adapter（在 Git 仓库中）。
-- 你希望得到一个无需依赖 adapter 的“已融合权重”，便于部署、量化或离线运行。
+- 存在 base model（在 ModelScope 上），也存在 adapter（在 Git 仓库中）。
+- 需要得到一个无需依赖 adapter 的“已融合权重”，便于部署、量化或离线运行。
 
 ### 1.2 它能完成什么
 
@@ -24,7 +24,7 @@ sidebar_position: 70
 4. 确保 `adapter_config.json` 存在（必要时由环境变量提供）。
 5. 使用 `peft` 把 adapter merge 到 base model，导出到 `output_dir`。
 
-### 1.3 输入、输出与副作用
+### 1.3 输入与输出
 
 **输入：**
 
@@ -46,13 +46,17 @@ sidebar_position: 70
 - 若 `work_dir` 或 `output_dir` 已存在，脚本会**删除并重建**（`ensure_clean_dir` 使用 `shutil.rmtree`）。
 - 会调用外部命令 `git`（以及可能的 `git lfs`），因此需要相应工具可用。
 
+**不改变：**
+
+- 不修改远端 base model 或 adapter 仓库本身；所有变更均发生在本地工作目录与导出目录。
+
 :::caution
 `--output_dir` 目录会被清空重建；不要指向包含重要文件的路径。
 :::
 
 ---
 
-## 二、参数与环境变量详解
+## 2) 参数与环境变量详解
 
 ### 2.1 命令行参数
 
@@ -75,7 +79,7 @@ sidebar_position: 70
 
 - **作用**：adapter 仓库的 git 地址。
 - **默认值**：环境变量 `ADAPTER_REPO_URL`，否则 `git@gitee.com:yukinostuki/qwen3-4b-plus.git`。
-- **注意**：默认是 SSH URL；在 Docker build 环境中若没有配置 SSH key，会克隆失败。你可以改用 HTTPS URL 或在构建环境注入 SSH 凭据。
+- **注意**：默认是 SSH URL；在 Docker build 环境中若没有配置 SSH key，会克隆失败。可改用 HTTPS URL 或在构建环境注入 SSH 凭据。
 
 #### `--adapter_ref`
 
@@ -97,23 +101,37 @@ sidebar_position: 70
 - **默认值**：环境变量 `MERGED_MODEL_DIR`，否则为当前工作目录下的 `./merged`。
 - **行为**：若存在会被删除并重建。
 
-### 2.2 环境变量速查表
+### 2.2 环境变量
 
-| 环境变量 | 对应参数/用途 | 作用 | 默认/备注 |
-|---|---|---|---|
-| `BASE_MODEL` | `--base_model` | base model id | 默认 `Qwen/Qwen3-4B` |
-| `BASE_REVISION` | `--base_revision` | base revision | 默认 `master` |
-| `MODEL_CACHE_DIR` | `--cache_dir` | 模型下载缓存目录 | 默认 `./model`（相对当前工作目录） |
-| `ADAPTER_REPO_URL` | `--adapter_repo_url` | adapter 仓库地址 | 默认是 gitee SSH URL |
-| `ADAPTER_REPO_REF` | `--adapter_ref` | adapter 仓库 ref | 默认空 |
-| `MERGE_WORK_DIR` | `--work_dir` | 克隆工作目录 | 默认 `./merge_work` |
-| `MERGED_MODEL_DIR` | `--output_dir` | 融合导出目录 | 默认 `./merged` |
-| `ADAPTER_CONFIG_JSON` | 配置注入 | adapter_config.json 的原始 JSON 字符串 | 仅在仓库缺失 config 时使用 |
-| `ADAPTER_CONFIG_PATH` | 配置注入 | adapter_config.json 的本地文件路径 | 同上 |
+- `BASE_MODEL`
+  - 对应参数：`--base_model`
+  - 作用：base model id。
+- `BASE_REVISION`
+  - 对应参数：`--base_revision`
+  - 作用：base revision。
+- `MODEL_CACHE_DIR`
+  - 对应参数：`--cache_dir`
+  - 作用：ModelScope 下载缓存目录。
+- `ADAPTER_REPO_URL`
+  - 对应参数：`--adapter_repo_url`
+  - 作用：adapter 仓库地址。
+- `ADAPTER_REPO_REF`
+  - 对应参数：`--adapter_ref`
+  - 作用：adapter 仓库 ref。
+- `MERGE_WORK_DIR`
+  - 对应参数：`--work_dir`
+  - 作用：克隆工作目录。
+- `MERGED_MODEL_DIR`
+  - 对应参数：`--output_dir`
+  - 作用：融合导出目录。
+- `ADAPTER_CONFIG_JSON`
+  - 作用：adapter_config.json 的原始 JSON 字符串；仅在仓库缺失 config 时使用。
+- `ADAPTER_CONFIG_PATH`
+  - 作用：adapter_config.json 的本地文件路径；仅在仓库缺失 config 时使用。
 
 ---
 
-## 三、代码实现详解
+## 3) 代码实现详解
 
 ### 3.1 外部依赖与运行环境
 
@@ -194,7 +212,7 @@ sidebar_position: 70
 
 ---
 
-## 四、常见问题（FAQ）
+## 4) 常见问题
 
 ### Q1：运行时报 git clone 失败（权限/认证错误）怎么办？
 
@@ -213,11 +231,11 @@ sidebar_position: 70
 - `adapter_model.bin`
 - `pytorch_model.bin`
 
-请确认你的 adapter 仓库里至少包含其中之一，且位于仓库根目录（或按需调整仓库结构）。
+请确认 adapter 仓库里至少包含其中之一，且位于仓库根目录（或按需调整仓库结构）。
 
 ### Q3：提示缺少 adapter_config.json 怎么办？
 
-这是 PEFT 融合所必需的文件。你可以二选一提供：
+这是 PEFT 融合所必需的文件。可二选一提供：
 
 - `ADAPTER_CONFIG_JSON`：把 JSON 原文放到环境变量
 - `ADAPTER_CONFIG_PATH`：指向一个本地 `adapter_config.json`
@@ -226,7 +244,7 @@ sidebar_position: 70
 
 ### Q4：Git LFS pointer 是什么？为什么会报错？
 
-有些仓库把大权重文件交给 Git LFS 管理，git clone 得到的只是一个很小的“指针文件”。脚本会尝试自动 `git lfs pull`；如果环境缺少 git-lfs 或无法下载 LFS 对象，就会失败并提示你安装/配置 git-lfs。
+有些仓库把大权重文件交给 Git LFS 管理，git clone 得到的只是一个很小的“指针文件”。脚本会尝试自动 `git lfs pull`；如果环境缺少 git-lfs 或无法下载 LFS 对象，就会失败并提示安装/配置 git-lfs。
 
 ### Q5：为什么会先尝试 fp16 再回退 fp32？
 

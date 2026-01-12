@@ -393,7 +393,7 @@ temperature = gr.Slider(0, 1, value=0, label="Temperature")
 
 ## 许可证
 
-本 WebUI 遵循项目主许可证 (AGPL-3.0)。
+本 WebUI 遵循项目主许可证 (Apache-2.0)。
 
 ## 问题反馈
 

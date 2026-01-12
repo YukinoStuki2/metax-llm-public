@@ -5,7 +5,7 @@ sidebar_position: 100
 
 # 校准集抽样脚本详解
 
-## 一、脚本功能概述
+## 1) 脚本功能概述
 
 ### 1.1 作用与定位
 
@@ -16,7 +16,7 @@ sidebar_position: 100
 - 量化脚本需要一个 jsonl，格式为每行 `{"text": "..."}`。
 - 本脚本负责从 `data.jsonl` 提取用户侧文本、去重、再抽样，生成这个校准 jsonl。
 
-### 1.2 输入、输出与副作用
+### 1.2 输入与输出
 
 **输入：**
 
@@ -37,9 +37,13 @@ sidebar_position: 100
 - 会写入/覆盖 `OUT_JSONL` 与 `OUT_TXT` 两个文件。
 - 不会修改 `DATA_JSONL`。
 
+**不改变：**
+
+- 不会修改源数据内容（只读抽样与写出）。
+
 ---
 
-## 二、参数与环境变量详解
+## 2) 参数与环境变量详解
 
 这个脚本不使用命令行参数，全部通过环境变量配置。
 
@@ -111,7 +115,7 @@ python3 sample_calib_from_data.py
 
 ---
 
-## 三、代码实现详解
+## 3) 代码实现详解
 
 ### 3.1 数据读取与容错：`_iter_jsonl(path)`
 
@@ -174,7 +178,7 @@ python3 sample_calib_from_data.py
 
 ---
 
-## 四、常见问题（FAQ）
+## 4) 常见问题
 
 ### Q1：为什么长度单位是“字符”而不是 token？
 
@@ -197,4 +201,4 @@ python3 sample_calib_from_data.py
 
 ### Q5：jsonl 里是 messages 格式，但为什么抽不到？
 
-脚本只会取 `messages` 中 `role==user` 的 `content`。如果你的数据使用了不同 role 命名（例如 `human`），需要改 `_extract_user_text` 里的匹配规则。
+脚本只会取 `messages` 中 `role==user` 的 `content`。若数据使用了不同 role 命名（例如 `human`），需要改 `_extract_user_text` 里的匹配规则。

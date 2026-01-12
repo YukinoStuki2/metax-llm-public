@@ -5,21 +5,14 @@ sidebar_position: 31
 
 本页面对应脚本 `start_webui.sh`：一个面向本地/云主机的 WebUI 启动器，用来快速拉起 `webui.py`（Gradio），并在需要时自动创建虚拟环境与安装依赖。
 
-文档结构：
-
-1. 用法 / 作用 / 输入输出 / 副作用
-2. 参数与环境变量详解
-3. 代码详解
-4. 常见问题（FAQ）
-
 ---
 
-## 1) 用法 / 作用 / 输入输出 / 副作用
+## 1) 脚本功能概述
 
 ### 作用与定位
 
-- 目标：让你在一台机器上更省事地启动 WebUI。
-- 它不启动后端：后端仍然需要你自己用 `./run_model.sh`（或其他方式）启动。
+- 目标：在一台机器上更省事地启动 WebUI。
+- 它不启动后端：后端仍然需要单独用 `./run_model.sh`（或其他方式）启动。
 - 它不参与评测：评测只关心 `serve.py` 的 `/` 与 `/predict`，WebUI 相关脚本不在评测链路中。
 
 ### 用法
@@ -47,13 +40,18 @@ VENV_PATH=./.venv-webui PYTHON_BIN=python3.10 ./start_webui.sh
 - 输入：主要通过环境变量（见第 2 节）。
 - 输出：
   - 标准输出打印当前配置、依赖安装进度、后端探活结果。
-  - 成功启动后，会运行 `python webui.py` 并进入阻塞态直到你停止 WebUI。
+  - 成功启动后，会运行 `python webui.py` 并进入阻塞态直到手动停止 WebUI。
 
 ### 副作用
 
 - 若 `VENV_PATH` 不存在，会创建一个虚拟环境目录。
 - 会在虚拟环境内执行 `pip install`（默认每次都 `--upgrade`）。
 - 会用 `curl` 对 `${API_BASE_URL}/` 做一次快速探活（仅提示，不会阻止继续启动）。
+
+### 不改变
+
+- 不下载模型权重。
+- 不启动或停止后端推理服务。
 
 ---
 
@@ -87,7 +85,7 @@ VENV_PATH=./.venv-webui PYTHON_BIN=python3.10 ./start_webui.sh
 
 ---
 
-## 3) 代码详解
+## 3) 代码实现详解
 
 按 `start_webui.sh` 的真实执行顺序说明：
 
@@ -124,11 +122,11 @@ VENV_PATH=./.venv-webui PYTHON_BIN=python3.10 ./start_webui.sh
 
 ---
 
-## 4) 常见问题（FAQ）
+## 4) 常见问题
 
-### Q1：我只启动了 start_webui.sh，为什么无法对话？
+### Q1：只启动 start_webui.sh，为什么无法对话？
 
-因为它不会启动后端 `serve.py`。你需要另开一个终端启动后端，例如：
+因为它不会启动后端 `serve.py`。需要另开一个终端启动后端，例如：
 
 ```bash
 ./run_model.sh
@@ -142,8 +140,8 @@ VENV_PATH=./.venv-webui PYTHON_BIN=python3.10 ./start_webui.sh
 
 可选做法：
 
-- 手动维护虚拟环境依赖：你可以先执行一次 `./start_webui.sh` 完成安装，之后直接 `source ./.venv/bin/activate && python webui.py`。
-- 或改造脚本：加一个 `SKIP_WEBUI_PIP_INSTALL=1` 之类的开关（如你需要我也可以直接帮你改脚本并同步文档）。
+- 手动维护虚拟环境依赖：可先执行一次 `./start_webui.sh` 完成安装，之后直接 `source ./.venv/bin/activate && python webui.py`。
+- 或改造脚本：增加 `SKIP_WEBUI_PIP_INSTALL=1` 之类的开关，并同步更新文档。
 
 ### Q3：报错 “找不到 Python：xxx” 怎么办？
 
@@ -165,6 +163,6 @@ WEBUI_PORT=7861 ./start_webui.sh
 
 ### Q5：断网环境能用这个脚本吗？
 
-如果虚拟环境里已经装好了依赖，且你关闭了 WebUI 的联网 RAG 功能，那么启动 WebUI 本身可以不依赖网络。
+如果虚拟环境里已经装好了依赖，且关闭了 WebUI 的联网 RAG 功能，那么启动 WebUI 本身可以不依赖网络。
 
 但 `start_webui.sh` 默认会执行 `pip install --upgrade`，在断网环境通常会失败；这种情况下建议直接激活已有 venv 并运行 `python webui.py`。

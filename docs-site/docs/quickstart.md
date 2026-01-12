@@ -10,6 +10,12 @@ sidebar_position: 3
 
 - 评测形态：Docker 构建并运行（评测系统通常不包含 WebUI）。
 
+可以选用Gitee算力方舟里的**曦云 C500/显存 64 GB/Inter 12核**
+
+选择镜像为：**vLLM / vllm:0.10.2 / Python 3.10 / maca 3.2.1.7**
+
+如果是本地测试请保证这些前置依赖已经安装完毕！requirements里不包含这些依赖。
+
 ## 使用 WebUI（推荐本地调试）
 
 1）导入默认环境变量（清理上次遗留参数）：
@@ -82,7 +88,7 @@ curl -s http://127.0.0.1:8000/predict \
   -d '{"prompt":"请简要回答：什么是xxx？"}'
 ```
 
-## Batch（可选提速）
+## Batch（默认开启）
 
 当开启 batch 模式时，评测系统可能会一次性把所有问题推到 `POST /predict`。
 

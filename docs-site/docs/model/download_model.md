@@ -5,7 +5,7 @@ sidebar_position: 60
 
 # 模型下载脚本详解
 
-## 一、脚本功能概述
+## 1) 脚本功能概述
 
 ### 1.1 作用与定位
 
@@ -17,9 +17,9 @@ sidebar_position: 60
 
 - 下载一个“主模型”（必选）到本地 `cache_dir`。
 - （可选）再下载一个 “draft 模型”（用于 speculative decoding 之类的加速方案），并可配置为“失败不阻塞构建”。
-- 输出下载后的真实落盘目录（`Resolved model_dir: ...`），便于你在 Dockerfile/启动脚本中引用。
+- 输出下载后的真实落盘目录（`Resolved model_dir: ...`），便于在 Dockerfile/启动脚本中引用。
 
-### 1.3 输入、输出与副作用
+### 1.3 输入与输出
 
 **输入：**
 
@@ -45,9 +45,13 @@ sidebar_position: 60
 - 在 `--cache_dir` 指定目录下写入/更新模型缓存文件（权重、配置、tokenizer 等）。
 - 不修改项目源码、不修改运行时配置；仅产生（或更新）本地模型文件。
 
+**不改变：**
+
+- 不修改项目源码与运行时推理参数。
+
 ---
 
-## 二、参数与环境变量详解
+## 2) 参数与环境变量详解
 
 本脚本所有可调项都来自命令行参数；其中一部分参数支持“默认从环境变量读取”。
 
@@ -100,26 +104,34 @@ sidebar_position: 60
 #### `--draft_optional`
 
 - **作用**：控制 draft 下载失败时是否“允许继续”。
-- **默认值（重要）**：
+- **默认值**：
   - 这是一个 `store_true` 参数，但脚本额外设置了默认值：当环境变量 `SPEC_DRAFT_OPTIONAL` 为 `1` 时默认开启；否则默认关闭。
-  - 换句话说：即便你不写 `--draft_optional`，它也可能默认为开启。
+  - 换句话说：即使未显式传入 `--draft_optional`，它也可能默认为开启。
 - **行为**：
   - 开启：draft 下载失败打印 warning 并继续，最终退出码仍可为 `0`
   - 关闭：draft 下载失败会 `sys.exit(2)`，使构建/流水线失败
 
-### 2.4 环境变量速查表
+### 2.4 环境变量
 
-| 环境变量 | 对应参数 | 作用 | 默认/备注 |
-|---|---|---|---|
-| `MODEL_ID` | `--model_name` | 主模型 ID | 未设置时用内置默认 `YukinoStuki/Qwen3-4B-Plus-Merged` |
-| `MODELSCOPE_API_TOKEN` | `--token` | 登录下载（私有/稳定） | 空则匿名 |
-| `SPEC_DRAFT_MODEL_ID` | `--draft_model_name` | draft 模型 ID | 空则跳过 |
-| `SPEC_DRAFT_MODEL_REVISION` | `--draft_revision` | draft 版本 | 未设置默认 `master` |
-| `SPEC_DRAFT_OPTIONAL` | `--draft_optional` 的默认值来源 | draft 失败是否允许继续 | `1` 表示默认开启 |
+- `MODEL_ID`
+  - 对应参数：`--model_name`
+  - 作用：主模型 ID；未设置时使用脚本内置默认 `YukinoStuki/Qwen3-4B-Plus-Merged`。
+- `MODELSCOPE_API_TOKEN`
+  - 对应参数：`--token`
+  - 作用：登录下载（私有/稳定）；为空则匿名。
+- `SPEC_DRAFT_MODEL_ID`
+  - 对应参数：`--draft_model_name`
+  - 作用：draft 模型 ID；为空则跳过。
+- `SPEC_DRAFT_MODEL_REVISION`
+  - 对应参数：`--draft_revision`
+  - 作用：draft 版本；未设置默认 `master`。
+- `SPEC_DRAFT_OPTIONAL`
+  - 对应参数：影响 `--draft_optional` 的默认值
+  - 作用：draft 失败是否允许继续；`1` 表示默认开启。
 
 ---
 
-## 三、代码实现详解
+## 3) 代码实现详解
 
 本脚本的实现非常直接：解析参数 → （可选）登录 → 下载主模型 → （可选）下载 draft → 根据结果退出。
 
@@ -170,17 +182,17 @@ sidebar_position: 60
 
 ---
 
-## 四、常见问题（FAQ）
+## 4) 常见问题
 
-### Q1：我应该把 `--cache_dir` 设到哪里？
+### Q1：`--cache_dir` 应该设到哪里？
 
-如果你在 Dockerfile 里下载，建议把 `--cache_dir` 设到镜像内固定位置（例如 `./model` 或 `/app/model`），并确保 `serve.py`/启动脚本用相同路径加载。
+如果在 Dockerfile 里下载，建议把 `--cache_dir` 设到镜像内固定位置（例如 `./model` 或 `/app/model`），并确保 `serve.py`/启动脚本用相同路径加载。
 
-### Q2：为什么脚本显示下载成功，但我找不到模型目录？
+### Q2：为什么脚本显示下载成功，但找不到模型目录？
 
 `snapshot_download()` 的落盘结构由 ModelScope SDK 决定，最终真实路径会打印在 `Resolved model_dir: ...`。请以该输出为准，并把它作为后续加载的路径来源。
 
-### Q3：我已经设置了 `--token`，为什么还是下载失败？
+### Q3：已设置 `--token`，为什么还是下载失败？
 
 常见原因：
 
@@ -188,9 +200,9 @@ sidebar_position: 60
 - 模型名或 revision 不存在。
 - 网络/代理问题导致 SDK 无法访问。
 
-### Q4：`--draft_optional` 我没写，但为什么 draft 失败没有让构建失败？
+### Q4：未显式传入 `--draft_optional`，为什么 draft 失败没有让构建失败？
 
-因为 `--draft_optional` 的默认值受环境变量 `SPEC_DRAFT_OPTIONAL` 控制：当它为 `1` 时默认开启。若你希望 draft 失败直接失败构建，请显式设置 `SPEC_DRAFT_OPTIONAL=0`，或在命令行不要传该 flag 且确保环境变量不是 `1`。
+因为 `--draft_optional` 的默认值受环境变量 `SPEC_DRAFT_OPTIONAL` 控制：当它为 `1` 时默认开启。若希望 draft 失败直接失败构建，请显式设置 `SPEC_DRAFT_OPTIONAL=0`，或确保环境变量不是 `1`。
 
 ### Q5：主模型下载失败时脚本的退出码是什么？
 
@@ -200,6 +212,6 @@ sidebar_position: 60
 
 可以。保持 `--draft_model_name` 为空即可（默认就为空，或显式 `--draft_model_name ""` / 不设置 `SPEC_DRAFT_MODEL_ID`）。
 
-### Q7：如何验证脚本已经使用了 token 登录？
+### Q7：如何验证脚本已经使用 token 登录？
 
 当 token 非空时脚本会打印：`Using ModelScope token for authenticated download.`。如果没看到这行，说明 `--token`/`MODELSCOPE_API_TOKEN` 仍为空或仅包含空白字符。
