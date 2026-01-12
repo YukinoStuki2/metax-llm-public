@@ -6,12 +6,12 @@ import styles from './styles.module.css';
 
 const FeatureList = [
   {
-    title: '推理服务（Judge 契约）',
+    title: '推理服务',
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        核心接口固定：<b>GET /</b> 健康检查、<b>POST /predict</b> 预测。务必保持快速返回、
-        并在响应里剔除 <code>&lt;think&gt;...&lt;/think&gt;</code>。
+        vllm、Batch处理、<b>Token Routing</b> 、数据集预热、文本截断、
+        <b>Qwen2.5-0.5B</b>全参微调、cuda与沐曦支持。
         <div className={styles.links}>
           <Link to="/docs/service/serve">接口与服务说明</Link>
           <span className={styles.dot}>·</span>
@@ -25,8 +25,8 @@ const FeatureList = [
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        用本地脚本模拟评测机调用方式，快速回归效果与吞吐。
-        评测输出为空会直接记 0 分。
+        用本地脚本模拟评测机调用方式，输出准确率与Token/s。
+        可选基础题和加分题、是否Batch、单题准确率与Token。
         <div className={styles.links}>
           <Link to="/docs/eval/eval_local">eval_local 使用说明</Link>
           <span className={styles.dot}>·</span>
@@ -41,7 +41,7 @@ const FeatureList = [
     description: (
       <>
         提供参数透传、System Prompt 管理、Batch 测试入口，并可按需启用 RAG。
-        评测环境 Run 阶段断网，请保持默认关闭或确保不触网。
+        联网查询、本地知识库、固定URL知识寻找、推理测信息显示。
         <div className={styles.links}>
           <Link to="/docs/webui/overview">WebUI 说明</Link>
         </div>
@@ -53,7 +53,8 @@ const FeatureList = [
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        支持 AWQ 量化、上传到 ModelScope、以及自动调参脚本（断点续跑）。
+        支持 AWQ 量化、上传到 ModelScope、以及断点续跑自动调参脚本。
+        自动调参，邮件和飞书机器人通知，最好参数保存与对比。
         <div className={styles.links}>
           <Link to="/docs/quant/awq">AWQ 量化</Link>
           <span className={styles.dot}>·</span>

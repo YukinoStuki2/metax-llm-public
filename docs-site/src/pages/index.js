@@ -56,8 +56,8 @@ function HomepageHeader() {
             <Link className={clsx('button button--lg', styles.ctaPrimary)} to="/docs/quickstart">
               快速开始
             </Link>
-            <Link className={clsx('button button--lg', styles.ctaSecondary)} to="/docs/service/serve">
-              查看 API 契约
+            <Link className={clsx('button button--lg', styles.ctaSecondary)} to="/docs/guide">
+              导航
             </Link>
             <Link
               className={clsx('button button--lg', styles.ctaGhost)}
@@ -68,7 +68,7 @@ function HomepageHeader() {
           </div>
 
           <div className={styles.note}>
-            评测 Run 阶段断网：服务端请求路径中不要引入任何外部网络调用。
+            2025年秋季中国科学院大学《GPU架构与编程》摩尔线程一等奖。
           </div>
         </div>
 
