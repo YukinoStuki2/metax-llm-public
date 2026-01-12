@@ -19,12 +19,7 @@ const sidebars = {
     'guide',
     'intro',
     'quickstart',
-    {
-      type: 'category',
-      label: '交付与同步',
-      link: {type: 'generated-index', description: '面向评测交付与 GitHub→Gitee 同步说明。'},
-      items: ['gitee-sync', 'files'],
-    },
+    'files',
     {
       type: 'category',
       label: '推理服务',

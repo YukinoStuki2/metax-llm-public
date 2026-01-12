@@ -10,9 +10,6 @@ title: 文档导航（阅读路径）
 ## 阅读须知
 
 - 每一份文档都有对应Github仓库内的一份或多份脚本
-
-- Gitee仓库里的是从Github仓库中挑选的部分用于上传评测机的文件，也就是最重要的文件
-
 - 其余文件均为辅助性脚本，不影响评测最终得分，但是对于调试过程有很大的帮助
 
 - 大部分脚本都设置了不少的环境变量和参数，本文档的作用在于查询参数作用和具体代码细节
@@ -34,6 +31,12 @@ title: 文档导航（阅读路径）
     <div className="neoCardTitle">快速开始</div>
     <div className="neoCardDesc">最快跑通：启动后端、探活、跑一次本地评测。</div>
     <div className="neoCardMeta">第一次来先看这里</div>
+  </a>
+
+  <a className="neoCard" href="/docs/files">
+    <div className="neoCardTitle">文件与目录说明</div>
+    <div className="neoCardDesc">全仓库文件/脚本用途索引：从入口脚本到调参/量化工具。</div>
+    <div className="neoCardMeta">找文件先看这里</div>
   </a>
 
   <a className="neoCard" href="/docs/service/serve">
@@ -76,12 +79,6 @@ title: 文档导航（阅读路径）
     <div className="neoCardTitle">量化</div>
     <div className="neoCardDesc">AWQ 量化 + 校准集生成：探索更高吞吐的路线之一。</div>
     <div className="neoCardMeta">性能优化</div>
-  </a>
-
-  <a className="neoCard" href="/docs/category/交付与同步">
-    <div className="neoCardTitle">交付与同步</div>
-    <div className="neoCardDesc">GitHub → Gitee 同步与白名单裁剪逻辑（评测交付必看）。</div>
-    <div className="neoCardMeta">提交评测</div>
   </a>
 </div>
 

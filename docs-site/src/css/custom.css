@@ -287,12 +287,27 @@ a:hover {
 
 /* Tables: glass + zebra */
 .markdown table {
-  display: block;
-  overflow-x: auto;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   border: 1px solid var(--neo-border);
   border-radius: 14px;
+  overflow: hidden;
   background: var(--neo-surface);
   box-shadow: var(--ifm-global-shadow-lw);
+}
+
+.markdown table th,
+.markdown table td {
+  border: 0;
+}
+
+.markdown table thead th {
+  border-bottom: 1px solid var(--neo-border);
+}
+
+.markdown table tbody td {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
 }
 
 .markdown table thead th {

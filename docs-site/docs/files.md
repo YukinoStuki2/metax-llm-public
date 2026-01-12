@@ -1,30 +1,12 @@
 ---
-sidebar_position: 5
+sidebar_position: 4
 ---
 
 # 文件与目录说明（全仓库）
 
-本页按照仓库当前结构，对所有文件/目录的用途做一份“全量索引”。阅读建议：
+本页按功能分组说明仓库内各文件/脚本的用途，方便“看到文件名就知道该看哪份文档/该跑哪个脚本”。
 
-- 如果你的目标是“评测交付 / Gitee 精简仓库”：重点关注“评测交付最小集”一节。
-- 如果你的目标是“本地开发/调参/量化/写文档”：按功能模块浏览后续分组。
-
-说明：仓库中存在一些“本地生成物/缓存目录”（例如 `model/`、`.venv/`、`docs-site/build/`）。这类内容通常不需要提交，也不应被评测链路依赖。本页会明确标注。
-
----
-
-## 评测交付最小集（用于镜像构建与推理服务）
-
-这部分文件原则上足以完成评测机的 build/run：
-
-|路径|用途|
-|---|---|
-|`Dockerfile`|镜像构建入口：安装依赖、下载模型、设置默认环境变量，并启动推理服务（端口 8000）。|
-|`requirements.txt`|在线服务最小依赖集合（供 `serve.py` 与 `download_model.py` 使用）。|
-|`download_model.py`|build 阶段从 ModelScope 下载模型权重到 `./model/`；可选下载 speculative decoding 的 draft 模型。|
-|`serve.py`|推理服务核心：FastAPI 应用，必须提供 `GET /` 与 `POST /predict`；run 阶段断网，禁止在请求路径联网。|
-|`README_GITEE.md`|面向评测提交的精简说明（同步到 Gitee 时会覆盖为 README）。|
-|`data.jsonl`|可选数据：用于预热/抽样/调试；不应成为服务启动强依赖。|
+说明：你本地可能会出现一些“生成物/缓存目录”（例如 `model/`、`.venv/`、`__pycache__/`）。这类内容通常不需要提交，也不应成为推理服务的运行时强依赖。
 
 ---
 
@@ -38,7 +20,7 @@ sidebar_position: 5
 |`README_WEBUI.md`|WebUI 的功能说明与常见问题。|
 |`DEPLOY.md`|部署相关说明（环境、启动方式、注意事项等）。|
 |`QUICKREF.md`|常用命令速查（启动、评测、调参、量化等）。|
-|`项目情况.txt`|项目说明/备忘（非评测必需）。|
+|`README_GITEE.md`|精简 README（用于同步/镜像提交场景）。|
 
 ---
 
@@ -127,36 +109,6 @@ sidebar_position: 5
 |---|---|
 |`data.jsonl`|问答数据集（用于评测/预热/抽样等）。|
 |`basic.txt` / `plus.txt`|题目/素材的文本版本（用于调试或对照）。|
-|`basic.docx` / `plus.docx`|题目/素材的原始文档（历史资料）。|
-
----
-
-## 文档站（docs-site/）
-
-`docs-site/` 是 Docusaurus 文档站源码与构建产物，在线文档来源于这里。
-
-|路径|用途|
-|---|---|
-|`docs-site/package.json`|文档站前端依赖与脚本命令。|
-|`docs-site/docusaurus.config.js`|站点配置（标题、导航、部署配置等）。|
-|`docs-site/sidebars.js`|侧边栏结构配置。|
-|`docs-site/README.md`|文档站开发说明（Docusaurus 模板自带）。|
-|`docs-site/docs/`|文档正文（Markdown）。|
-|`docs-site/src/`|站点 React 组件与页面源码。|
-|`docs-site/static/`|静态资源（图片等），构建时原样拷贝。|
-|`docs-site/build/`|站点构建输出（生成物；通常不建议手工编辑）。|
-
-`docs-site/docs/` 内按主题拆分了脚本文档与说明页（例如 service、tuning、quant、webui 等）；如要新增脚本说明，建议按现有目录结构新增页面。
-
----
-
-## GitHub 自动化与仓库元信息
-
-|路径|用途|
-|---|---|
-|`.github/workflows/sync_to_gitee.yml`|GitHub Actions：每次 push 到 master 后裁剪文件树并强制同步到 Gitee（评测提交仓库）。|
-|`.github/copilot-instructions.md`|Copilot 工作约束（评测契约、参数对齐规则、依赖添加约束等）。|
-|`.git/`|Git 元数据目录。|
 
 ---
 
@@ -171,7 +123,6 @@ sidebar_position: 5
 |`.venv-awq/`|量化专用虚拟环境（避免依赖冲突）。|
 |`__pycache__/`|Python 字节码缓存。|
 |`tune_server_logs/`|自动调参产生的服务端日志（本地生成物）。|
-|`docs-site/build/`|Docusaurus 构建输出（生成物）。|
 
 ---
 
