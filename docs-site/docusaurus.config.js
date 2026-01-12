@@ -71,9 +71,29 @@ const config = {
             position: 'left',
             label: '文档',
           },
+            {
+              to: '/docs/guide',
+              label: '导航',
+              position: 'left',
+            },
           {
             to: '/docs/quickstart',
             label: '快速开始',
+            position: 'left',
+          },
+          {
+            to: '/docs/service/serve',
+            label: '服务',
+            position: 'left',
+          },
+          {
+            to: '/docs/eval/eval_local',
+            label: '评测',
+            position: 'left',
+          },
+          {
+            to: '/docs/tuning/auto_tune',
+            label: '调参',
             position: 'left',
           },
           {

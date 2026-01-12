@@ -15,6 +15,29 @@
   --ifm-color-primary-lightest: #a78bfa;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+
+  /* Cyber neon accents (keep purple as primary) */
+  --neo-cyan: #22d3ee;
+  --neo-purple: #6366f1;
+  --neo-violet: #7c3aed;
+  --neo-pink: #ec4899;
+  --neo-ink: rgba(2, 6, 23, 1);
+
+  --neo-glow-sm: 0 0 18px rgba(99, 102, 241, 0.28);
+  --neo-glow-md: 0 0 34px rgba(99, 102, 241, 0.30);
+  --neo-glow-cyan: 0 0 28px rgba(34, 211, 238, 0.26);
+
+  --neo-border: rgba(148, 163, 184, 0.22);
+  --neo-surface: rgba(255, 255, 255, 0.72);
+  --neo-surface-2: rgba(255, 255, 255, 0.56);
+  --neo-surface-solid: #ffffff;
+
+  --neo-gradient: linear-gradient(135deg, var(--neo-purple), var(--neo-violet));
+  --neo-gradient-2: linear-gradient(135deg, var(--neo-purple), var(--neo-cyan));
+  --neo-gradient-3: linear-gradient(135deg, var(--neo-violet), var(--neo-pink));
+
+  --ifm-navbar-shadow: none;
+  --ifm-global-shadow-lw: 0 10px 34px rgba(2, 6, 23, 0.08);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -27,4 +50,287 @@
   --ifm-color-primary-lighter: #c4b5fd;
   --ifm-color-primary-lightest: #ddd6fe;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+
+  --neo-border: rgba(148, 163, 184, 0.18);
+  --neo-surface: rgba(2, 6, 23, 0.42);
+  --neo-surface-2: rgba(2, 6, 23, 0.32);
+  --neo-surface-solid: rgba(2, 6, 23, 1);
+  --ifm-global-shadow-lw: 0 16px 52px rgba(0, 0, 0, 0.42);
+}
+
+/* =====================
+ * Global cyber polish
+ * ===================== */
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* =====================
+ * Docs navigation cards (guide.md)
+ * ===================== */
+
+.neoGrid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  margin: 16px 0 8px;
+}
+
+.neoCard {
+  grid-column: span 12;
+  display: block;
+  padding: 14px 14px 12px;
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(900px 180px at var(--mx, 50%) var(--my, 20%), rgba(168, 97, 255, 0.22), transparent 55%),
+    linear-gradient(180deg, var(--neo-surface), var(--neo-surface-2));
+  border: 1px solid rgba(168, 97, 255, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.2) inset,
+    0 12px 42px rgba(0, 0, 0, 0.42);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 200ms ease, filter 200ms ease;
+}
+
+.neoCard:hover {
+  border-color: rgba(168, 97, 255, 0.55);
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.2) inset,
+    0 18px 60px rgba(0, 0, 0, 0.52),
+    0 0 28px rgba(99, 102, 241, 0.22);
+}
+
+.neoCardTitle {
+  font-weight: 800;
+  font-size: 1.02rem;
+  letter-spacing: 0.01em;
+  margin-bottom: 6px;
+}
+
+.neoCardDesc {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+[data-theme='light'] .neoCardDesc {
+  color: rgba(2, 6, 23, 0.72);
+}
+
+.neoCardMeta {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: rgba(34, 211, 238, 0.78);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@media (min-width: 996px) {
+  .neoCard {
+    grid-column: span 6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neoCard,
+  .neoCard:hover {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* Navbar: glass + neon border */
+.navbar {
+  backdrop-filter: blur(12px);
+  background:
+    radial-gradient(1200px circle at 20% 0%, rgba(99, 102, 241, 0.10), transparent 45%),
+    rgba(255, 255, 255, 0.72);
+  border-bottom: 1px solid var(--neo-border);
+}
+
+[data-theme='dark'] .navbar {
+  background:
+    radial-gradient(1200px circle at 20% 0%, rgba(99, 102, 241, 0.12), transparent 45%),
+    rgba(2, 6, 23, 0.60);
+}
+
+.navbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--neo-gradient-2);
+  opacity: 0.55;
+  filter: blur(0.2px);
+}
+
+.navbar__link--active,
+.navbar__link:hover {
+  text-shadow: var(--neo-glow-sm);
+}
+
+/* Link hover underline glow */
+a {
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-shadow: var(--neo-glow-sm);
+}
+
+/* Headings: subtle neon gradient underline */
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  scroll-margin-top: 88px;
+}
+
+.markdown h2 {
+  position: relative;
+  padding-bottom: 0.25rem;
+}
+
+.markdown h2::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 86px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--neo-gradient);
+  opacity: 0.75;
+}
+
+/* Code blocks: neon edge + better contrast */
+.theme-code-block {
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  box-shadow: 0 10px 38px rgba(2, 6, 23, 0.08);
+  overflow: hidden;
+}
+
+[data-theme='dark'] .theme-code-block {
+  border-color: rgba(99, 102, 241, 0.22);
+  box-shadow: 0 16px 54px rgba(0, 0, 0, 0.35);
+}
+
+.theme-code-block:hover {
+  box-shadow: 0 16px 56px rgba(99, 102, 241, 0.12);
+}
+
+/* Inline code */
+.markdown code {
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+[data-theme='dark'] .markdown code {
+  border-color: rgba(99, 102, 241, 0.20);
+  background: rgba(99, 102, 241, 0.10);
+}
+
+/* Tables: glass + zebra */
+.markdown table {
+  display: block;
+  overflow-x: auto;
+  border: 1px solid var(--neo-border);
+  border-radius: 14px;
+  background: var(--neo-surface);
+  box-shadow: var(--ifm-global-shadow-lw);
+}
+
+.markdown table thead th {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.04));
+}
+
+.markdown table tbody tr:nth-child(2n) {
+  background: rgba(99, 102, 241, 0.04);
+}
+
+[data-theme='dark'] .markdown table {
+  background: var(--neo-surface);
+}
+
+[data-theme='dark'] .markdown table tbody tr:nth-child(2n) {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+/* Admonitions: stronger neon frame */
+.alert {
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  box-shadow: 0 18px 54px rgba(2, 6, 23, 0.07);
+}
+
+[data-theme='dark'] .alert {
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28);
+}
+
+/* Sidebar active item glow */
+.menu__link {
+  border-radius: 12px;
+}
+
+.menu__link--active {
+  background: rgba(99, 102, 241, 0.10);
+  box-shadow: var(--neo-glow-sm);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+}
+
+[data-theme='dark'] .menu__link--active {
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(99, 102, 241, 0.22);
+  box-shadow: var(--neo-glow-md);
+}
+
+/* TOC: highlight on hover */
+.table-of-contents__link:hover {
+  text-shadow: var(--neo-glow-sm);
+}
+
+/* Subtle animated gradient on primary buttons */
+.button.button--primary {
+  background: var(--neo-gradient);
+  border: 0;
+  box-shadow: var(--neo-glow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.button.button--primary::before {
+  content: '';
+  position: absolute;
+  inset: -40% -20%;
+  background: radial-gradient(circle at 30% 30%, rgba(34, 211, 238, 0.38), transparent 45%);
+  transform: translate3d(-20%, 0, 0);
+  opacity: 0.0;
+  transition: opacity 180ms ease;
+}
+
+.button.button--primary:hover::before {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar {
+    backdrop-filter: none;
+  }
+  .button.button--primary,
+  .button.button--primary::before,
+  .hero::before {
+    transition: none;
+    animation: none;
+  }
 }
