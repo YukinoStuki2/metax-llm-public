@@ -120,11 +120,6 @@ const config = {
                 label: 'GitHub',
                 href: 'https://github.com/YukinoStuki2/metax-llm-public',
               },
-            ],
-          },
-          {
-            title: '联系',
-            items: [
               {
                 label: 'yukinostuki@qq.com',
                 href: 'mailto:yukinostuki@qq.com',
